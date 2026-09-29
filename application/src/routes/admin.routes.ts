@@ -1,0 +1,11 @@
+import { Router } from "express";
+import { addProduct, editProduct, orders, removeProduct, users } from "../controllers/admin.controller";
+import { authenticate, requireRole } from "../middleware/auth";
+const router = Router();
+router.use(authenticate, requireRole("admin"));
+router.get("/users", users);
+router.get("/orders", orders);
+router.post("/products", addProduct);
+router.patch("/products/:id", editProduct);
+router.delete("/products/:id", removeProduct);
+export default router;
