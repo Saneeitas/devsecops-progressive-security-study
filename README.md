@@ -26,6 +26,8 @@ From the repository root:
 docker compose up --build
 ```
 
+PostgreSQL is available on host port `5433`. The API container connects internally to `postgres:5432`.
+
 Then open:
 
 ```text
