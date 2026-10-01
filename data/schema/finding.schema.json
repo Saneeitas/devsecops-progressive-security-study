@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/devsecops-study/finding.schema.json",
+  "title": "Normalized security finding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["finding_id", "run_id", "tool", "control", "rule_id", "title", "severity", "locations", "classification", "seeded_vulnerability_ids", "manual_validation"],
+  "properties": {
+    "finding_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "pattern": "^(P-)?C[0-6]-R[0-9]{3,}$" },
+    "tool": { "type": "string", "minLength": 1 },
+    "tool_version": { "type": "string", "minLength": 1 },
+    "control": { "enum": ["SAST", "SCA", "SECRET_SCANNING", "CONTAINER_SCANNING", "IAC_SCANNING", "DAST"] },
+    "rule_id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "severity": { "enum": ["UNKNOWN", "INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    "native_severity": { "type": ["string", "null"] },
+    "locations": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/location" } },
+    "classification": { "enum": ["SEEDED_TRUE_POSITIVE", "SEEDED_FALSE_NEGATIVE", "NON_SEEDED_VALID_FINDING", "FALSE_POSITIVE", "UNRESOLVED"] },
+    "seeded_vulnerability_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^V(0[1-9]|1[0-2])$" } },
+    "fingerprint": { "type": ["string", "null"] },
+    "raw_artifact": { "type": ["string", "null"] },
+    "manual_validation": { "$ref": "#/$defs/validation" }
+  },
+  "$defs": {
+    "location": {
+      "type": "object", "additionalProperties": false, "required": ["uri"],
+      "properties": { "uri": { "type": "string", "minLength": 1 }, "start_line": { "type": ["integer", "null"], "minimum": 1 }, "end_line": { "type": ["integer", "null"], "minimum": 1 }, "component": { "type": ["string", "null"] } }
+    },
+    "validation": {
+      "type": "object", "additionalProperties": false, "required": ["required", "status"],
+      "properties": { "required": { "type": "boolean" }, "status": { "enum": ["NOT_REQUIRED", "PENDING", "VALIDATED"] }, "reviewer": { "type": ["string", "null"] }, "validated_at": { "type": ["string", "null"], "format": "date-time" }, "rationale": { "type": ["string", "null"] }, "evidence": { "type": ["string", "null"] } }
+    }
+  }
+}

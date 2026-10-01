@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/devsecops-study/run.schema.json",
+  "title": "Pipeline experimental run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "classification", "configuration", "corpus_commit", "pipeline_commit", "timestamp", "environment", "cache", "timings", "resources", "tools", "security", "outcome"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "run_id": { "type": "string", "pattern": "^(P-)?C[0-6]-R[0-9]{3,}$" },
+    "classification": { "enum": ["pilot", "final"] },
+    "configuration": { "enum": ["C0", "C1", "C2", "C3", "C4", "C5", "C6"] },
+    "corpus_commit": { "const": "eeb2e772ffb60fb214df8b41866be23be89dcf3f" },
+    "pipeline_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "environment": { "$ref": "#/$defs/environment" },
+    "cache": { "$ref": "#/$defs/cache" },
+    "timings": { "$ref": "#/$defs/timings" },
+    "resources": { "$ref": "#/$defs/resources" },
+    "tools": { "type": "array", "items": { "$ref": "#/$defs/tool" } },
+    "security": { "$ref": "#/$defs/security" },
+    "outcome": { "$ref": "#/$defs/outcome" }
+  },
+  "$defs": {
+    "duration": { "type": ["number", "null"], "minimum": 0 },
+    "environment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["os", "architecture", "runner_type", "node_version", "postgresql_version", "docker_version"],
+      "properties": { "os": { "type": "string" }, "os_version": { "type": ["string", "null"] }, "architecture": { "type": "string" }, "runner_type": { "type": "string" }, "runner_name": { "type": ["string", "null"] }, "cpu": { "type": ["string", "null"] }, "cpu_count": { "type": ["integer", "null"], "minimum": 1 }, "memory_bytes": { "type": ["integer", "null"], "minimum": 0 }, "node_version": { "type": "string" }, "postgresql_version": { "type": "string" }, "docker_version": { "type": "string" }, "ci_metadata": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } } }
+    },
+    "cache": {
+      "type": "object", "additionalProperties": false, "required": ["policy", "condition", "primed"],
+      "properties": { "policy": { "const": "controlled_warm" }, "condition": { "enum": ["warm", "cold", "unknown"] }, "primed": { "type": "boolean" }, "dependency_cache_hit": { "type": ["boolean", "null"] }, "docker_cache_condition": { "enum": ["warm", "cold", "mixed", "unknown"] }, "notes": { "type": ["string", "null"] } }
+    },
+    "timings": {
+      "type": "object", "additionalProperties": false, "required": ["clock", "pipeline_started_at", "pipeline_ended_at", "total_ms", "setup_ms", "build_ms", "functional_test_ms", "deployment_startup_ms", "dast_ms", "security_controls"],
+      "properties": { "clock": { "const": "monotonic_wall_clock" }, "pipeline_started_at": { "type": "string", "format": "date-time" }, "pipeline_ended_at": { "type": "string", "format": "date-time" }, "total_ms": { "$ref": "#/$defs/duration" }, "setup_ms": { "$ref": "#/$defs/duration" }, "build_ms": { "$ref": "#/$defs/duration" }, "functional_test_ms": { "$ref": "#/$defs/duration" }, "deployment_startup_ms": { "$ref": "#/$defs/duration" }, "dast_ms": { "$ref": "#/$defs/duration" }, "security_controls": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["control", "tool", "duration_ms"], "properties": { "control": { "type": "string" }, "tool": { "type": "string" }, "duration_ms": { "$ref": "#/$defs/duration" } } } } }
+    },
+    "resources": {
+      "type": "object", "additionalProperties": false, "required": ["measurement_available", "cpu_utilization_percent", "peak_memory_bytes"],
+      "properties": { "measurement_available": { "type": "boolean" }, "cpu_utilization_percent": { "type": ["number", "null"], "minimum": 0 }, "peak_memory_bytes": { "type": ["integer", "null"], "minimum": 0 }, "sampling_interval_ms": { "type": ["integer", "null"], "minimum": 1 }, "method": { "type": ["string", "null"] } }
+    },
+    "tool": {
+      "type": "object", "additionalProperties": false, "required": ["control", "name", "version", "executed", "native_exit_code", "artifact"],
+      "properties": { "control": { "type": "string" }, "name": { "type": "string" }, "version": { "type": "string" }, "configuration_digest": { "type": ["string", "null"] }, "executed": { "type": "boolean" }, "native_exit_code": { "type": ["integer", "null"] }, "artifact": { "type": ["string", "null"] } }
+    },
+    "security": {
+      "type": "object", "additionalProperties": false, "required": ["finding_count", "normalized_finding_count", "finding_artifact", "vulnerability_detection"],
+      "properties": { "finding_count": { "type": "integer", "minimum": 0 }, "normalized_finding_count": { "type": "integer", "minimum": 0 }, "finding_artifact": { "type": ["string", "null"] }, "counts_by_classification": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }, "vulnerability_detection": { "type": "array", "minItems": 12, "maxItems": 12, "items": { "$ref": "#/$defs/detection" } } }
+    },
+    "detection": {
+      "type": "object", "additionalProperties": false, "required": ["vulnerability_id", "expected_controls", "in_scope", "detected", "detecting_tools", "first_configuration"],
+      "properties": { "vulnerability_id": { "type": "string", "pattern": "^V(0[1-9]|1[0-2])$" }, "expected_controls": { "type": "array", "items": { "type": "string" } }, "in_scope": { "type": "boolean" }, "detected": { "type": "boolean" }, "detecting_tools": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["tool", "rule_id", "severity", "location"], "properties": { "tool": { "type": "string" }, "rule_id": { "type": "string" }, "severity": { "type": "string" }, "location": { "type": "string" } } } }, "first_configuration": { "type": ["string", "null"], "pattern": "^C[0-6]$" }, "classification": { "enum": ["SEEDED_TRUE_POSITIVE", "SEEDED_FALSE_NEGATIVE", "NOT_IN_SCOPE"] }, "validation_notes": { "type": ["string", "null"] } }
+    },
+    "outcome": {
+      "type": "object", "additionalProperties": false, "required": ["success", "exit_status", "security_gate", "failure_stage"],
+      "properties": { "success": { "type": "boolean" }, "exit_status": { "type": "integer" }, "security_gate": { "enum": ["PASS", "FAIL", "NOT_APPLICABLE", "ERROR"] }, "failure_stage": { "type": ["string", "null"] }, "notes": { "type": ["string", "null"] } }
+    }
+  }
+}
