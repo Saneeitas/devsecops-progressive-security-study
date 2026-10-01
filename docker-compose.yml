@@ -2,13 +2,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123456
-      POSTGRES_DB: devsecops_study
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the repository .env file}
+      POSTGRES_DB: ${POSTGRES_DB:-devsecops_study}
     ports:
-      - "5433:5432"
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d devsecops_study"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -20,12 +20,12 @@ services:
       context: ./application
     environment:
       PORT: 3000
-      DATABASE_URL: postgresql://postgres:123456@postgres:5432/devsecops_study
-      JWT_SECRET: ${JWT_SECRET:-development-only-change-this-secret-to-at-least-32-characters}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-devsecops_study}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the repository .env file}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     ports:
-      - "3000:3000"
+      - "${API_HOST_PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy

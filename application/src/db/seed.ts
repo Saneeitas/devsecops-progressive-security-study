@@ -3,9 +3,15 @@ import bcrypt from "bcryptjs";
 import { pool } from "../config/db";
 import { migrate } from "./migrate";
 
+function requiredSeedValue(name: string): string {
+  const value = process.env[name];
+  if (!value || value.startsWith("<")) throw new Error(`${name} must be set for local seed data`);
+  return value;
+}
+
 const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@example.com";
-const adminPassword = process.env.SEED_ADMIN_PASSWORD || "AdminPass123!";
-const userPassword = process.env.SEED_USER_PASSWORD || "UserPass123!";
+const adminPassword = requiredSeedValue("SEED_ADMIN_PASSWORD");
+const userPassword = requiredSeedValue("SEED_USER_PASSWORD");
 
 async function upsertUser(name: string, email: string, password: string, role: "user" | "admin") {
   const hash = await bcrypt.hash(password, 12);

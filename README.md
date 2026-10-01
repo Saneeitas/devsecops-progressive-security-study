@@ -12,14 +12,20 @@ A small e-commerce and order-management REST API used for the study **“Evaluat
 
 ## Environment configuration
 
-Copy the example and replace development values where needed:
+For local execution, copy the application template and replace every angle-bracket placeholder:
 
 ```bash
 cd application
 cp .env.example .env
 ```
 
-Required settings are `DATABASE_URL` and a private `JWT_SECRET` containing at least 32 characters. `PORT`, `JWT_EXPIRES_IN`, and `CORS_ORIGIN` have development defaults documented in `.env.example`. Never commit `.env` or use the sample secrets outside local development.
+For Docker Compose, create the separate ignored repository-root environment file:
+
+```bash
+cp .env.example .env
+```
+
+Required settings are `DATABASE_URL` and a private `JWT_SECRET` containing at least 32 characters. Seeding also requires locally selected `SEED_ADMIN_PASSWORD` and `SEED_USER_PASSWORD` values. Never commit either `.env` file.
 
 Local host execution uses PostgreSQL at `localhost:5432`. Docker Compose publishes its PostgreSQL service on host port `5433` to avoid conflicting with a locally installed server; containers communicate internally through `postgres:5432`.
 
@@ -29,21 +35,21 @@ Create the `devsecops_study` database, then install dependencies, apply the sche
 
 ```bash
 cd application
-npm install
+npm ci
 npm run db:migrate
 npm run db:seed
 npm run dev
 ```
 
-The seed creates five products and these explicitly non-production accounts:
+The seed creates five products and these local accounts using passwords supplied through the ignored application environment file:
 
-| Role | Email | Password |
-|---|---|---|
-| Admin | `admin@example.com` | `AdminPass123!` |
-| User | `alice@example.com` | `UserPass123!` |
-| User | `bob@example.com` | `UserPass123!` |
+| Role | Email |
+|---|---|
+| Admin | `admin@example.com` |
+| User | `alice@example.com` |
+| User | `bob@example.com` |
 
-Seed credentials can be overridden with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, and `SEED_USER_PASSWORD`.
+Seed values are configured with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, and `SEED_USER_PASSWORD`.
 
 ## Build and tests
 
@@ -53,18 +59,19 @@ npm run build
 npm test
 ```
 
-Database-backed tests should use a separate database to avoid altering development data:
+Database-backed tests should use a separate database to avoid altering development data. Export the connection URL and a generated test JWT secret rather than committing them:
 
 ```bash
-NODE_ENV=test \
-TEST_DATABASE_URL=postgresql://postgres:123456@localhost:5432/devsecops_study_test \
-JWT_SECRET=test-only-secret-that-is-at-least-32-characters \
+export NODE_ENV=test
+export TEST_DATABASE_URL='<test-database-connection-url>'
+export JWT_SECRET='<generated-test-value-of-at-least-32-characters>'
 npm test
 ```
 
 ## Docker Compose
 
 ```bash
+cp .env.example .env
 docker compose build
 docker compose up -d postgres
 docker compose run --rm api npm run db:migrate:prod
@@ -72,7 +79,15 @@ docker compose run --rm api npm run db:seed:prod
 docker compose up -d
 ```
 
-The API is available at `http://localhost:3000`; PostgreSQL is published at `localhost:5433`. Stop services with `docker compose down`. Use `docker compose down -v` only when you also intend to delete the Compose database volume.
+By default, the API is available at `http://localhost:3000` and PostgreSQL is published at `localhost:5433`. Change `API_HOST_PORT` or `POSTGRES_HOST_PORT` in the ignored root `.env` if those ports are occupied. Stop services with `docker compose down`. Use `docker compose down -v` only when you also intend to delete the Compose database volume.
+
+Confirm that the runtime container is unprivileged:
+
+```bash
+docker compose exec api id -u
+```
+
+The command must print a nonzero UID (`1000` for the official image's `node` user).
 
 ## API endpoints
 

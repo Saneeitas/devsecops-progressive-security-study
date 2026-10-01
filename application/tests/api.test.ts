@@ -1,11 +1,12 @@
 import request from "supertest";
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { app } from "../src/app";
 import { pool } from "../src/config/db";
 import { migrate } from "../src/db/migrate";
 
-const password = "StrongPass123!";
+const password = `T-${randomBytes(18).toString("hex")}aA1!`;
 let userToken: string;
 let secondUserToken: string;
 let adminToken: string;

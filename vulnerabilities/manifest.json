@@ -1,0 +1,151 @@
+{
+  "schema_version": "1.0",
+  "corpus": "devsecops-progressive-security-study",
+  "baseline_ref": "secure-baseline-v2",
+  "ground_truth_classes": [
+    "Seeded True Positive",
+    "Seeded False Negative",
+    "Non-seeded Valid Finding",
+    "False Positive"
+  ],
+  "vulnerabilities": [
+    {
+      "id": "V01",
+      "name": "SQL injection in product search",
+      "layer": "application-source",
+      "cwe": ["CWE-89"],
+      "cve": [],
+      "owasp": ["OWASP-A03:2021"],
+      "location": "application/src/services/product.service.ts:listProducts",
+      "expected_controls": ["SAST", "DAST"],
+      "status": "designed"
+    },
+    {
+      "id": "V02",
+      "name": "OS command injection in research diagnostics",
+      "layer": "application-source",
+      "cwe": ["CWE-78"],
+      "cve": [],
+      "owasp": ["OWASP-A03:2021"],
+      "location": "future application/src/services/diagnostics.service.ts and /api/admin/diagnostics/ping",
+      "expected_controls": ["SAST", "DAST"],
+      "status": "designed"
+    },
+    {
+      "id": "V03",
+      "name": "Mass assignment of user role",
+      "layer": "api-property-authorization",
+      "cwe": ["CWE-915"],
+      "cve": [],
+      "owasp": ["OWASP-API3:2023"],
+      "location": "application/src/controllers/auth.controller.ts and application/src/services/auth.service.ts",
+      "expected_controls": ["SAST", "DAST", "API_SECURITY_TESTING"],
+      "status": "designed",
+      "replaces": "reflected XSS"
+    },
+    {
+      "id": "V04",
+      "name": "Broken object level authorization on order retrieval",
+      "layer": "api-authorization",
+      "cwe": ["CWE-639", "CWE-862"],
+      "cve": [],
+      "owasp": ["OWASP-API1:2023"],
+      "location": "application/src/services/order.service.ts:getOrder",
+      "expected_controls": ["SAST", "DAST", "API_SECURITY_TESTING"],
+      "status": "designed"
+    },
+    {
+      "id": "V05",
+      "name": "Hardcoded non-functional research token",
+      "layer": "source-secrets",
+      "cwe": ["CWE-798"],
+      "cve": [],
+      "owasp": [],
+      "location": "future application/src/config/research-fixture.ts",
+      "expected_controls": ["SECRET_SCANNING"],
+      "status": "designed"
+    },
+    {
+      "id": "V06",
+      "name": "Known-vulnerable lodash dependency",
+      "layer": "software-supply-chain",
+      "cwe": ["CWE-77"],
+      "cve": ["CVE-2021-23337"],
+      "owasp": ["OWASP-A06:2021"],
+      "location": "application/package.json and application/package-lock.json",
+      "expected_controls": ["SCA"],
+      "status": "designed",
+      "proposed_component": "lodash@4.17.20"
+    },
+    {
+      "id": "V07",
+      "name": "Vulnerable Node runtime container component",
+      "layer": "container-component",
+      "cwe": [],
+      "cve": ["CVE-2023-30581"],
+      "owasp": ["OWASP-A06:2021"],
+      "location": "application/Dockerfile FROM instructions",
+      "expected_controls": ["CONTAINER_SCANNING", "SBOM_ANALYSIS"],
+      "status": "designed",
+      "proposed_component": "node:18.16.0-bullseye-slim (digest to be recorded at injection)"
+    },
+    {
+      "id": "V08",
+      "name": "Container running as root",
+      "layer": "container-configuration",
+      "cwe": ["CWE-250"],
+      "cve": [],
+      "owasp": [],
+      "location": "application/Dockerfile runtime stage",
+      "expected_controls": ["IAC_SCANNING", "CONTAINER_CONFIGURATION_SCANNING"],
+      "status": "designed",
+      "baseline_issue": false,
+      "secure_baseline_location": "application/Dockerfile: USER node",
+      "proposed_mutation": "Remove USER node so the runtime falls back to UID 0."
+    },
+    {
+      "id": "V09",
+      "name": "Publicly readable S3 bucket",
+      "layer": "infrastructure-as-code",
+      "cwe": ["CWE-284", "CWE-732"],
+      "cve": [],
+      "owasp": ["OWASP-A01:2021"],
+      "location": "infrastructure/terraform/s3.tf secure counterpart; future V09 mutation",
+      "expected_controls": ["IAC_SCANNING"],
+      "status": "designed"
+    },
+    {
+      "id": "V10",
+      "name": "SSH ingress open to 0.0.0.0/0",
+      "layer": "infrastructure-as-code",
+      "cwe": ["CWE-284"],
+      "cve": [],
+      "owasp": ["OWASP-A05:2021"],
+      "location": "infrastructure/terraform/security-group.tf secure counterpart; future V10 mutation",
+      "expected_controls": ["IAC_SCANNING"],
+      "status": "designed"
+    },
+    {
+      "id": "V11",
+      "name": "Wildcard IAM permissions",
+      "layer": "infrastructure-as-code",
+      "cwe": ["CWE-732"],
+      "cve": [],
+      "owasp": ["OWASP-A01:2021"],
+      "location": "infrastructure/terraform/iam.tf secure counterpart; future V11 mutation",
+      "expected_controls": ["IAC_SCANNING"],
+      "status": "designed"
+    },
+    {
+      "id": "V12",
+      "name": "Unencrypted EBS volume",
+      "layer": "infrastructure-as-code",
+      "cwe": ["CWE-311"],
+      "cve": [],
+      "owasp": ["OWASP-A02:2021"],
+      "location": "infrastructure/terraform/ebs.tf secure counterpart; future V12 mutation",
+      "expected_controls": ["IAC_SCANNING"],
+      "status": "designed"
+    }
+  ]
+}
