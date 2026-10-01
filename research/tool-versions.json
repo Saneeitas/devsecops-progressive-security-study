@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "selected_on": "2026-10-01",
+  "status": "specified_not_installed",
+  "tools": [
+    {
+      "control": "SAST", "tool": "Semgrep", "version": "1.178.0", "release_tag": "v1.178.0", "release_date": "2026-09-23",
+      "official_source": "https://github.com/semgrep/semgrep/releases/tag/v1.178.0",
+      "method": "official container semgrep/semgrep:1.178.0; immutable digest to be resolved before pilot",
+      "output": "JSON", "verify": "semgrep --version", "container_digest": null,
+      "mutable_artifacts_to_freeze": ["exported Semgrep Community Edition security rules bundle"]
+    },
+    {
+      "control": "SCA", "tool": "OSV-Scanner", "version": "2.6.0", "release_tag": "v2.6.0", "release_date": "2026-09-14",
+      "official_source": "https://github.com/google/osv-scanner/releases/tag/v2.6.0",
+      "method": "official GitHub release binary with release checksum verification",
+      "output": "JSON", "verify": "osv-scanner --version", "container_digest": null,
+      "mutable_artifacts_to_freeze": ["OSV advisory database/query snapshot"]
+    },
+    {
+      "control": "SECRET_SCANNING", "tool": "Gitleaks", "version": "8.30.1", "release_tag": "v8.30.1", "release_date": "2026-03-21",
+      "official_source": "https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1",
+      "method": "official GitHub release binary with checksums file verification",
+      "output": "JSON", "verify": "gitleaks version", "container_digest": null,
+      "mutable_artifacts_to_freeze": ["experiment path-exclusion configuration"]
+    },
+    {
+      "control": "CONTAINER_SCANNING", "tool": "Trivy", "version": "0.74.0", "release_tag": "v0.74.0", "release_date": "2026-08-14",
+      "official_source": "https://github.com/aquasecurity/trivy/releases/tag/v0.74.0",
+      "method": "official aquasec/trivy:0.74.0 container; immutable digest to be resolved before pilot",
+      "output": "JSON", "verify": "trivy --version", "container_digest": null,
+      "mutable_artifacts_to_freeze": ["Trivy vulnerability database", "Trivy Java database if applicable"]
+    },
+    {
+      "control": "IAC_SCANNING", "tool": "Checkov", "version": "3.3.8", "release_tag": "3.3.8", "release_date": "2026-07-09",
+      "official_source": "https://github.com/bridgecrewio/checkov/releases/tag/3.3.8",
+      "method": "exact PyPI package checkov==3.3.8 in an isolated frozen tool environment",
+      "output": "JSON", "verify": "checkov --version", "container_digest": null,
+      "mutable_artifacts_to_freeze": ["Python environment lock/checksum", "built-in policy inventory"]
+    },
+    {
+      "control": "DAST", "tool": "OWASP ZAP", "version": "2.17.0", "release_tag": "v2.17.0", "release_date": "2025-12-15",
+      "official_source": "https://github.com/zaproxy/zaproxy/releases/tag/v2.17.0",
+      "method": "official ZAP container with API Scan script; immutable image digest to be resolved before pilot",
+      "output": "ZAP JSON report", "verify": "zap.sh -version", "container_digest": null,
+      "mutable_artifacts_to_freeze": ["ZAP add-on versions", "API rule configuration", "OpenAPI definition", "authentication context"]
+    }
+  ]
+}

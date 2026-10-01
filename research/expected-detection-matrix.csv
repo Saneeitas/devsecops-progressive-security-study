@@ -1,0 +1,13 @@
+vulnerability_id,vulnerability,security_layer,SAST,SCA,SECRET_SCANNING,CONTAINER_SCANNING,IAC_SCANNING,DAST,pre_result_rationale
+V01,SQL injection,application source/database,EXPECTED,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,POSSIBLE,Static taint/pattern analysis and active API testing are theoretically relevant.
+V02,OS command injection,application source/OS interaction,EXPECTED,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,POSSIBLE,Static sink analysis is relevant; authenticated dynamic reachability may limit DAST.
+V03,Mass assignment,API property authorization,POSSIBLE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,POSSIBLE,Business meaning of role may be opaque to both static rules and generic API scanning.
+V04,Broken object level authorization,API authorization,POSSIBLE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,POSSIBLE,Semantic static analysis or multi-principal DAST could detect it; the selected standard ZAP treatment is not a two-session authorization harness.
+V05,Hardcoded fake secret,source secrets,OUTSIDE_SCOPE,OUTSIDE_SCOPE,EXPECTED,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,Current-tree provider-pattern secret scanning is directly relevant.
+V06,Vulnerable lodash dependency,software supply chain,OUTSIDE_SCOPE,EXPECTED,OUTSIDE_SCOPE,POSSIBLE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,Lockfile SCA is directly relevant; image scanning may inventory the runtime package.
+V07,Vulnerable Node runtime container,container component,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,EXPECTED,OUTSIDE_SCOPE,OUTSIDE_SCOPE,Container vulnerability inventory is directly relevant though runtime-binary coverage can vary.
+V08,Container running as root,container configuration,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,The selected C4 treatment is vulnerability-only and C5 is Terraform-only; neither evaluates Docker runtime-user configuration.
+V09,Public S3 configuration,infrastructure as code,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,EXPECTED,OUTSIDE_SCOPE,Terraform access-control policy analysis is directly relevant.
+V10,Open SSH ingress,infrastructure as code/network,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,EXPECTED,OUTSIDE_SCOPE,Terraform network-policy analysis is directly relevant.
+V11,Wildcard IAM permissions,infrastructure as code/IAM,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,EXPECTED,OUTSIDE_SCOPE,Terraform IAM-policy analysis is directly relevant.
+V12,Unencrypted EBS,infrastructure as code/data protection,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,OUTSIDE_SCOPE,EXPECTED,OUTSIDE_SCOPE,Terraform encryption-policy analysis is directly relevant.
