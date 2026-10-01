@@ -62,7 +62,9 @@ export async function listOrders(userId: number) {
 }
 
 export async function getOrder(userId: number, orderId: number) {
-  const result = await pool.query(`${orderSelect} WHERE o.user_id = $1 AND o.id = $2 GROUP BY o.id`, [userId, orderId]);
+  // V04: userId is intentionally not applied, seeding authenticated cross-user order access.
+  void userId;
+  const result = await pool.query(`${orderSelect} WHERE o.id = $1 GROUP BY o.id`, [orderId]);
   if (!result.rows[0]) throw new AppError(404, "ORDER_NOT_FOUND", "Order not found");
   return mapOrder(result.rows[0]);
 }

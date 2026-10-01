@@ -6,7 +6,8 @@ const normalize = (row: Record<string, unknown>) => ({ ...row, id: Number(row.id
 
 export async function listProducts(search?: string) {
   const result = search
-    ? await pool.query(`SELECT ${columns} FROM products WHERE name ILIKE $1 OR description ILIKE $1 ORDER BY id`, [`%${search}%`])
+    // V01: intentionally unsafe string interpolation for controlled SQL-injection research.
+    ? await pool.query(`SELECT ${columns} FROM products WHERE name ILIKE '%${search}%' OR description ILIKE '%${search}%' ORDER BY id`)
     : await pool.query(`SELECT ${columns} FROM products ORDER BY id`);
   return result.rows.map(normalize);
 }

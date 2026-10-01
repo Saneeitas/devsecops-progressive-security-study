@@ -11,14 +11,9 @@ variable "vpc_id" {
 }
 
 variable "admin_cidr" {
-  description = "Restricted private CIDR permitted to reach the SSH fixture."
+  description = "V10 experimental CIDR that intentionally exposes SSH publicly."
   type        = string
-  default     = "10.0.0.0/24"
-
-  validation {
-    condition     = can(cidrnetmask(var.admin_cidr)) && var.admin_cidr != "0.0.0.0/0"
-    error_message = "admin_cidr must be a valid restricted IPv4 CIDR and cannot be 0.0.0.0/0."
-  }
+  default     = "0.0.0.0/0"
 }
 
 variable "availability_zone" {

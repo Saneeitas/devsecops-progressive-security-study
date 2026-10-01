@@ -36,14 +36,15 @@ function signToken(user: Pick<PublicUser, "id" | "role">): string {
   });
 }
 
-export async function registerUser(input: { name: string; email: string; password: string }) {
+export async function registerUser(input: { name: string; email: string; password: string; role?: UserRole }) {
   const passwordHash = await bcrypt.hash(input.password, 12);
   try {
     const result = await pool.query<UserRow>(
-      `INSERT INTO users (name, email, password_hash)
-       VALUES ($1, LOWER($2), $3)
+      `INSERT INTO users (name, email, password_hash, role)
+       VALUES ($1, LOWER($2), $3, $4)
        RETURNING id, name, email, password_hash, role, created_at, updated_at`,
-      [input.name, input.email, passwordHash]
+      // V03: protected role is intentionally persisted from registration input.
+      [input.name, input.email, passwordHash, input.role || "user"]
     );
     const user = toPublicUser(result.rows[0]);
     return { user, token: signToken(user) };

@@ -18,7 +18,7 @@
       "owasp": ["OWASP-A03:2021"],
       "location": "application/src/services/product.service.ts:listProducts",
       "expected_controls": ["SAST", "DAST"],
-      "status": "designed"
+      "status": "seeded_verified"
     },
     {
       "id": "V02",
@@ -27,9 +27,9 @@
       "cwe": ["CWE-78"],
       "cve": [],
       "owasp": ["OWASP-A03:2021"],
-      "location": "future application/src/services/diagnostics.service.ts and /api/admin/diagnostics/ping",
+      "location": "application/src/services/diagnostics.service.ts and GET /api/admin/diagnostics/ping",
       "expected_controls": ["SAST", "DAST"],
-      "status": "designed"
+      "status": "seeded_verified"
     },
     {
       "id": "V03",
@@ -40,7 +40,7 @@
       "owasp": ["OWASP-API3:2023"],
       "location": "application/src/controllers/auth.controller.ts and application/src/services/auth.service.ts",
       "expected_controls": ["SAST", "DAST", "API_SECURITY_TESTING"],
-      "status": "designed",
+      "status": "seeded_verified",
       "replaces": "reflected XSS"
     },
     {
@@ -52,7 +52,7 @@
       "owasp": ["OWASP-API1:2023"],
       "location": "application/src/services/order.service.ts:getOrder",
       "expected_controls": ["SAST", "DAST", "API_SECURITY_TESTING"],
-      "status": "designed"
+      "status": "seeded_verified"
     },
     {
       "id": "V05",
@@ -61,9 +61,9 @@
       "cwe": ["CWE-798"],
       "cve": [],
       "owasp": [],
-      "location": "future application/src/config/research-fixture.ts",
+      "location": "application/src/config/research-fixture.ts",
       "expected_controls": ["SECRET_SCANNING"],
-      "status": "designed"
+      "status": "seeded_verified"
     },
     {
       "id": "V06",
@@ -74,7 +74,7 @@
       "owasp": ["OWASP-A06:2021"],
       "location": "application/package.json and application/package-lock.json",
       "expected_controls": ["SCA"],
-      "status": "designed",
+      "status": "seeded_verified",
       "proposed_component": "lodash@4.17.20"
     },
     {
@@ -86,8 +86,8 @@
       "owasp": ["OWASP-A06:2021"],
       "location": "application/Dockerfile FROM instructions",
       "expected_controls": ["CONTAINER_SCANNING", "SBOM_ANALYSIS"],
-      "status": "designed",
-      "proposed_component": "node:18.16.0-bullseye-slim (digest to be recorded at injection)"
+      "status": "seeded_verified",
+      "proposed_component": "node:18.16.0-bullseye-slim@sha256:2b05866efb50b6bbc642e6d1cef908372351ad981453b8a747b1d0c9b5777cd8"
     },
     {
       "id": "V08",
@@ -98,7 +98,7 @@
       "owasp": [],
       "location": "application/Dockerfile runtime stage",
       "expected_controls": ["IAC_SCANNING", "CONTAINER_CONFIGURATION_SCANNING"],
-      "status": "designed",
+      "status": "seeded_verified",
       "baseline_issue": false,
       "secure_baseline_location": "application/Dockerfile: USER node",
       "proposed_mutation": "Remove USER node so the runtime falls back to UID 0."
@@ -110,9 +110,9 @@
       "cwe": ["CWE-284", "CWE-732"],
       "cve": [],
       "owasp": ["OWASP-A01:2021"],
-      "location": "infrastructure/terraform/s3.tf secure counterpart; future V09 mutation",
+      "location": "infrastructure/terraform/s3.tf",
       "expected_controls": ["IAC_SCANNING"],
-      "status": "designed"
+      "status": "seeded_verified"
     },
     {
       "id": "V10",
@@ -121,9 +121,9 @@
       "cwe": ["CWE-284"],
       "cve": [],
       "owasp": ["OWASP-A05:2021"],
-      "location": "infrastructure/terraform/security-group.tf secure counterpart; future V10 mutation",
+      "location": "infrastructure/terraform/security-group.tf and variables.tf",
       "expected_controls": ["IAC_SCANNING"],
-      "status": "designed"
+      "status": "seeded_verified"
     },
     {
       "id": "V11",
@@ -132,9 +132,9 @@
       "cwe": ["CWE-732"],
       "cve": [],
       "owasp": ["OWASP-A01:2021"],
-      "location": "infrastructure/terraform/iam.tf secure counterpart; future V11 mutation",
+      "location": "infrastructure/terraform/iam.tf",
       "expected_controls": ["IAC_SCANNING"],
-      "status": "designed"
+      "status": "seeded_verified"
     },
     {
       "id": "V12",
@@ -143,9 +143,9 @@
       "cwe": ["CWE-311"],
       "cve": [],
       "owasp": ["OWASP-A02:2021"],
-      "location": "infrastructure/terraform/ebs.tf secure counterpart; future V12 mutation",
+      "location": "infrastructure/terraform/ebs.tf",
       "expected_controls": ["IAC_SCANNING"],
-      "status": "designed"
+      "status": "seeded_verified"
     }
   ]
 }

@@ -6,7 +6,7 @@
 - **Mapping:** CVE-2023-30581
 - **Proposed location:** Both `FROM` lines in `application/Dockerfile`
 - **Secure baseline behavior:** The image uses Node 22 on Alpine 3.22 and currently builds with a clean npm dependency audit.
-- **Proposed controlled mutation:** On the isolated V07 branch, replace the Node base with `node:18.16.0-bullseye-slim`, pin its immutable digest at injection time, and record the resolved OS packages and scanner database date. Node 18.16.1 lists CVE-2023-30581 among its fixed issues.
+- **Proposed controlled mutation:** On the isolated V07 branch, replace the Node base with `node:18.16.0-bullseye-slim` pinned to `sha256:2b05866efb50b6bbc642e6d1cef908372351ad981453b8a747b1d0c9b5777cd8`. Node 18.16.1 lists CVE-2023-30581 among its fixed issues.
 - **Why selected:** A fixed historical Node runtime CVE gives a concrete application-runtime component for container scanning without requiring exploitation.
 - **Expected security-control category:** Container image scanning and SBOM analysis.
 - **Potential scanner classes:** OS/runtime image scanners, registry scanners, SBOM-to-advisory matching, and policy gates.

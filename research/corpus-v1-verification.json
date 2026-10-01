@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "baseline_ref": "secure-baseline-v2",
+  "baseline_commit": "7067c5b2bf862893056959b0c15cd04d15cf183f",
+  "experimental_branch": "experiment/vulnerability-corpus-v1",
+  "experimental_commit": null,
+  "verified_at": "2026-10-01",
+  "scanner_run": false,
+  "terraform_deployed": false,
+  "results": [
+    { "id": "V01", "status": "seeded_verified", "method": "ground-truth integration test" },
+    { "id": "V02", "status": "seeded_verified", "method": "ground-truth authenticated integration test" },
+    { "id": "V03", "status": "seeded_verified", "method": "ground-truth integration test" },
+    { "id": "V04", "status": "seeded_verified", "method": "ground-truth integration test and retained functional regression" },
+    { "id": "V05", "status": "seeded_verified", "method": "ground-truth source fixture test" },
+    { "id": "V06", "status": "seeded_verified", "method": "ground-truth package manifest test" },
+    { "id": "V07", "status": "seeded_verified", "method": "ground-truth Dockerfile test, image build, and runtime version" },
+    { "id": "V08", "status": "seeded_verified", "method": "ground-truth Dockerfile test and runtime UID" },
+    { "id": "V09", "status": "seeded_verified", "method": "ground-truth Terraform source test and terraform validate" },
+    { "id": "V10", "status": "seeded_verified", "method": "ground-truth Terraform source test and terraform validate" },
+    { "id": "V11", "status": "seeded_verified", "method": "ground-truth Terraform source test and terraform validate" },
+    { "id": "V12", "status": "seeded_verified", "method": "ground-truth Terraform source test and terraform validate" }
+  ]
+}

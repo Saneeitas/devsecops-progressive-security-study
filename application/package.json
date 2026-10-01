@@ -12,6 +12,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:seed:prod": "node dist/db/seed.js",
     "test": "vitest run",
+    "test:functional": "vitest run --config vitest.config.ts",
+    "test:ground-truth": "vitest run --config vitest.ground-truth.config.ts",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -21,6 +23,7 @@
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
+    "lodash": "4.17.20",
     "pg": "^8.16.0",
     "zod": "^4.6.5"
   },
