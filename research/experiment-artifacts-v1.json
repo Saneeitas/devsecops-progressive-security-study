@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0",
+  "status": "frozen",
+  "corpus": {
+    "tag": "corpus-v1",
+    "commit": "eeb2e772ffb60fb214df8b41866be23be89dcf3f"
+  },
+  "runner_platform": "linux/amd64",
+  "tool_versions_manifest": {
+    "path": "research/tool-versions.json",
+    "sha256": "40e7875af1c55ff3f41222f3b828d58713fad81909d9168c348a6c45e4529d0d"
+  },
+  "container_images": {
+    "semgrep": {
+      "reference": "docker.io/semgrep/semgrep:1.178.0",
+      "index_digest": "sha256:32e459968daabe7ab86968184a29109b9564aa00392401156f9788452b42786b",
+      "linux_amd64_manifest": "sha256:fbba1f23d2ef94630c828e8692758f8bc6353a8089841a396a5c041451966ffb"
+    },
+    "trivy": {
+      "reference": "docker.io/aquasec/trivy:0.74.0",
+      "index_digest": "sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+      "linux_amd64_manifest": "sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b52536afbd1eee66cd7123c5c9"
+    },
+    "zap": {
+      "reference": "ghcr.io/zaproxy/zaproxy:2.17.0",
+      "index_digest": "sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef",
+      "linux_amd64_manifest": "sha256:71db37cd5b75663b35758d10aaec05bf6fbac23f5020e3046c70e628a5f84efa"
+    }
+  },
+  "semgrep_rules": {
+    "path": "pipeline/security/semgrep-rules-v1.json",
+    "sha256": "e9f4f21f490d3f21456d4b7d0aa238925caaee9b8fd4cd0138a8dd0893328317",
+    "upstream_revision": "a84ff9cc2453ca91d581380de4b8b3f272f6f4be",
+    "selection_manifest_sha256": "7320b4589864a2b509a77756f73f105df832f365c1172828e9942bdac02cc8a4"
+  },
+  "osv_advisory_database": {
+    "path": "pipeline/security/osv-database-v1.json",
+    "sha256": "4a9f30db6f3a81535c03d2a885a2ad182ba50fd94dda1f6a7def6a9beac33014",
+    "gcs_generation": "1790875957849873",
+    "source_md5_base64": "tkWSeWnYUpzWbsr9u+8lXA==",
+    "last_modified": "2026-10-01T17:32:37Z"
+  },
+  "trivy_database": {
+    "path": "pipeline/security/trivy-database-v1.json",
+    "sha256": "feadfde57f109a4a361af5a49892e2f31a296f90c44caaf1aee85091b840170f",
+    "artifact_digest": "sha256:3e694df3acc64fdac0abf70766f832898d22349c823c35edeb352231fd648b42",
+    "layer_digest": "sha256:2cf80facc0947c50c3b1a719456497fd7cc2b83e2bc60b13b8842207bac4abd0",
+    "created": "2026-10-01T19:07:06Z",
+    "java_database_enabled": false
+  },
+  "configurations": {
+    "gitleaks": {"path": "pipeline/security/gitleaks.toml", "sha256": "60e15fe1eaf1d53d12bf6609bdc6236dfeb7c19f4fc1e10fb3538d7fe7bd930b"},
+    "checkov": {"path": "pipeline/security/checkov.yaml", "sha256": "6ad830c483daf0bedbff3d25baedfc85fa1201b2cb0099c60ec62926a93ec624"},
+    "zap_rules": {"path": "pipeline/security/zap-rules.conf", "sha256": "0b59a337eeee6cec5f5d19ed7441607ffa721f7007cec2700f61082ab35e57e9"}
+  },
+  "dast": {
+    "openapi": {"path": "pipeline/security/openapi-corpus-v1.yaml", "sha256": "38b2f7820d58d13012c22af5123def9890e7f467ece13c77ab00fc89a2369c24"},
+    "dataset": {"path": "pipeline/security/dast-dataset-v1.json", "sha256": "301b642f2696ae854326140b56635537fb5a300c2d84f3c11cc7b8aad41aa998"},
+    "contract": {"path": "research/dast-test-contract-v1.md", "sha256": "d73a31ba27533b733abbbce32742c9460ed5599c805dc6a7850efeecc28b9ac3", "version": "v1"},
+    "context": {"path": "pipeline/security/zap-context-v1.json", "sha256": "39f3db659c0d3cf3cbf13c64f3c3a1c569dacfee1662ddd3eb0fcb4ba2fb47f2"},
+    "timeout_minutes": 30,
+    "packaged_scan_timeout_minutes": 15
+  },
+  "zap_addons": {
+    "status": "frozen",
+    "zap_version": "2.17.0",
+    "inventory": {
+      "path": "pipeline/security/zap-addon-inventory-v1.txt",
+      "sha256": "cff9fe34982b882410c58010bee2fbde20fa9232ffa0d32dc17061f7968a6c0b",
+      "command": "zap.sh -cmd -addonlist",
+      "network": "disabled",
+      "target": null,
+      "platform": "linux/amd64"
+    },
+    "relevant_packages": {
+      "active_scan_rules": "ascanrules v83.0.0",
+      "passive_scan_rules": "pscanrules v75.0.0",
+      "openapi": "openapi v57.0.0",
+      "authentication_helper": "authhelper v0.41.0",
+      "automation_framework": "automation v0.60.0",
+      "replacer": "replacer v22.0.0",
+      "sequence": "sequence v10.0.0"
+    },
+    "updates": "disabled during runs; no -addonupdate or -addoninstall is allowed"
+  }
+}

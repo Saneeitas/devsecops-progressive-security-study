@@ -1,0 +1,14 @@
+title = "DevSecOps study Gitleaks treatment v1"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Exclude metadata, generated dependencies, builds, and experimental output"
+paths = [
+  '''(^|/)\.git(/|$)''',
+  '''(^|/)data/raw(/|$)''',
+  '''(^|/)application/node_modules(/|$)''',
+  '''(^|/)application/dist(/|$)''',
+  '''(^|/)artifacts(/|$)'''
+]

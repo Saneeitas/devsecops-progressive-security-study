@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "target": "http://api:3000",
+  "include_regex": "^http://api:3000/api/.*$",
+  "authentication": {
+    "mechanism": "pre_scan_login",
+    "login_endpoint": "/api/auth/login",
+    "header": "Authorization",
+    "scheme": "Bearer",
+    "token_artifact_policy": "runtime-only; redact from logs and reports; never commit"
+  },
+  "passes": [
+    {"id": "user", "principal": "alice@example.com", "token_environment_variable": "DAST_USER_JWT", "order_path_id": 1},
+    {"id": "admin", "principal": "admin@example.com", "token_environment_variable": "DAST_ADMIN_JWT", "order_path_id": 1}
+  ],
+  "substitution_policy": "Only runtime bearer tokens and the declared target URL may be substituted. Endpoint paths, request schemas, examples, rule configuration, and identifiers are immutable.",
+  "network_policy": "Only the isolated Compose network target is in scope. No external target is permitted."
+}

@@ -8,26 +8,26 @@ This is a pre-result specification for `corpus-v1` (`eeb2e772ffb60fb214df8b41866
 
 | Configuration | Control | Tool | Version/tag | Release date | Intended distribution |
 |---|---|---|---|---|---|
-| C1 | SAST | Semgrep | `1.178.0` / `v1.178.0` | 2026-09-23 | Official `semgrep/semgrep:1.178.0` image, digest pending |
+| C1 | SAST | Semgrep | `1.178.0` / `v1.178.0` | 2026-09-23 | Official image index `sha256:32e459…42786b`; Linux/amd64 manifest `sha256:fbba1f…66ffb` |
 | C2 | SCA | OSV-Scanner | `2.6.0` / `v2.6.0` | 2026-09-14 | Official GitHub release binary and checksum |
 | C3 | Secrets | Gitleaks | `8.30.1` / `v8.30.1` | 2026-03-21 | Official GitHub release binary and checksum |
-| C4 | Container vulnerabilities | Trivy | `0.74.0` / `v0.74.0` | 2026-08-14 | Official `aquasec/trivy:0.74.0` image, digest pending |
+| C4 | Container vulnerabilities | Trivy | `0.74.0` / `v0.74.0` | 2026-08-14 | Official image index `sha256:62b1e6…7c1969`; Linux/amd64 manifest `sha256:ee940a…3c5c9` |
 | C5 | Terraform IaC | Checkov | `3.3.8` / `3.3.8` | 2026-07-09 | Exact PyPI package in an isolated, frozen tool environment |
-| C6 | DAST | OWASP ZAP | `2.17.0` / `v2.17.0` | 2025-12-15 | Official ZAP container, immutable digest pending |
+| C6 | DAST | OWASP ZAP | `2.17.0` / `v2.17.0` | 2025-12-15 | Official image index `sha256:781a2b…081ef`; Linux/amd64 manifest `sha256:71db37…84efa` |
 
-Official release provenance and verification commands are machine-readable in `tool-versions.json`. A release version does not freeze mutable Semgrep registry rules, OSV/Trivy advisory data, or ZAP add-ons; those artifacts remain explicit pre-pilot resolution items.
+Official release provenance and verification commands are machine-readable in `tool-versions.json`. The frozen Semgrep rules, OSV/Trivy advisory data, and ZAP add-on inventory are recorded in `research/experiment-artifacts-v1.json`.
 
 ## C1: Semgrep SAST
 
 **Boundary.** Scan only `application/src/**/*.ts`. Exclude `application/dist`, `node_modules`, coverage, tests, `research`, `data`, `vulnerabilities`, Docker/Compose, Terraform, lockfiles, and generated files. This excludes dependency, secret, container, and IaC analysis.
 
-**Rules.** Use Semgrep Community Edition security rules for JavaScript/TypeScript/Node.js from an exported `p/security-audit` snapshot. Before the pilot, save the exact resolved YAML bundle under a pipeline-only configuration path, record its SHA-256 and upstream revision, and use that local immutable bundle for every run. Do not use `--config auto`, Semgrep Secrets, Semgrep Supply Chain, `semgrep ci`, managed policies, or network-fetched rules during measured runs.
+**Rules.** Use the 177 JavaScript/TypeScript security YAML files selected by `pipeline/security/semgrep-rules-v1.json` from Semgrep Community Edition rules revision `a84ff9cc2453ca91d581380de4b8b3f272f6f4be`. Verify the source archive and selected-file composite checksum stated there, materialize that local bundle before timing, and use it for every run. Do not use `--config auto`, Semgrep Secrets, Semgrep Supply Chain, `semgrep ci`, managed policies, or network-fetched rules during measured runs.
 
 **Future invocation pattern (not executed):**
 
 ```sh
 semgrep scan \
-  --config pipeline/security/semgrep/security-audit-frozen.yml \
+  --config pipeline/security/semgrep-rules-v1/ \
   --json --output artifacts/semgrep.json \
   --error \
   --exclude 'application/tests/**' \
@@ -95,7 +95,7 @@ Capture the native finding exit code and continue. Database/setup failures are e
 
 ## C5: Checkov Terraform IaC scanning
 
-**Boundary.** Scan only `infrastructure/terraform/` with `--framework terraform`. Do not scan Dockerfiles, workflows, Kubernetes, secrets, packages, container images, OpenAPI, or application files. Use Checkov's built-in Terraform policies for version 3.3.8 without external policies, platform/API keys, suppressions, or skipped checks. `--skip-download` prevents platform policy/data changes.
+**Boundary.** Scan only `infrastructure/terraform/` with `--framework terraform`. Do not scan Dockerfiles, workflows, Kubernetes, secrets, packages, container images, OpenAPI, or application files. Use Checkov's built-in Terraform policies for version 3.3.8 without external policies, platform/API keys, suppressions, or skipped checks. `--skip-download` prevents platform policy/data changes. `BC_API_KEY`, `PRISMA_API_URL`, `CKV_CHECK`, `CKV_SKIP_CHECK`, and `CKV_FRAMEWORK` must be unset; no external checks directory is configured.
 
 **Future invocation pattern (not executed):**
 
@@ -143,9 +143,9 @@ Every tool produces two conceptual outputs:
 
 The orchestration layer will temporarily disable fail-fast behavior around each scanner, record start/end time and native status, validate/persist output, and then continue to the next control when safe. It must never convert a tool execution error into “no findings.” The final experimental gate is evaluated only after all configured stages complete, preventing earlier detections from censoring later measurements.
 
-## Reproducibility artifacts still to freeze
+## Reproducibility artifacts
 
-Before pilot execution, resolve official container manifest digests for Semgrep, Trivy, and ZAP without scanning the corpus; checksum the Semgrep rules bundle, Gitleaks configuration, Checkov policy package/environment, ZAP OpenAPI/context/rules/add-ons, and OSV/Trivy databases. Record platform-specific binary checksums and runner architecture. Any resolution changes the pipeline specification commit but not `corpus-v1`.
+Container manifests, Semgrep rule selection, Gitleaks/Checkov configuration, OSV identity metadata, Trivy database artifact, OpenAPI contract, DAST dataset, DAST contract, and the ZAP add-on inventory are recorded in `research/experiment-artifacts-v1.json`. The inventory was obtained with `zap.sh -cmd -addonlist` from the pinned Linux/amd64 image while Docker networking was disabled and no target was supplied. No `-addonupdate` or add-on installation is allowed.
 
 ## Limitations
 

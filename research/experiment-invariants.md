@@ -14,5 +14,7 @@ The following conditions are frozen for final experimentation. Changing one requ
 | Cache policy | Controlled warm-cache priming and cache-state recording are used; cold-cache runs require a separate condition |
 | Timing methodology | Monotonic wall-clock boundaries and stage definitions in the protocol remain fixed |
 | Finding normalization | Deduplication keys, severity mapping, location handling, corpus mapping, and adjudication rules are versioned and frozen before results |
+| Frozen artifacts | The exact artifact identities and checksums in `research/experiment-artifacts-v1.json`, including container manifests, rules, databases, configurations, OpenAPI contract, DAST dataset, and ZAP inventory, are immutable for final runs |
+| DAST contract | The two-pass authenticated DAST behavior and deterministic clean-reset dataset in `research/dast-test-contract-v1.md` remain unchanged |
 
-The pipeline commit SHA, run metadata, deviations, failures, and tool exit results must be recorded for every run. Raw scanner output is immutable. Pilot records cannot enter the final dataset. No insecure Terraform is deployed as part of this experiment.
+Changing a frozen artifact requires either a documented protocol amendment before final data collection or a new experiment version with a separate dataset. The pipeline commit SHA, run metadata, deviations, failures, and tool exit results must be recorded for every run. Raw scanner output is immutable. Pilot records cannot enter the final dataset. No insecure Terraform is deployed as part of this experiment.

@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "repository": "https://github.com/semgrep/semgrep-rules.git",
+  "revision": "a84ff9cc2453ca91d581380de4b8b3f272f6f4be",
+  "source_archive": "https://github.com/semgrep/semgrep-rules/archive/a84ff9cc2453ca91d581380de4b8b3f272f6f4be.tar.gz",
+  "source_archive_sha256": "b227c2d234ffd9c84c4dbd6619a5897a7192637c141baeace3bfc37b0715a887",
+  "selection": {
+    "include": ["javascript/**/security/**/*.yaml", "typescript/**/security/**/*.yaml"],
+    "exclude": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx"],
+    "rule_file_count": 177,
+    "javascript_rule_files": 162,
+    "typescript_rule_files": 15,
+    "sorted_file_digest_manifest_sha256": "7320b4589864a2b509a77756f73f105df832f365c1172828e9942bdac02cc8a4"
+  },
+  "target_languages": ["javascript", "typescript"],
+  "target": "application/src",
+  "target_exclusions": ["application/tests/**", "application/dist/**", "application/node_modules/**"],
+  "retrieval": "Fetch the immutable source archive, verify its SHA-256, select the declared YAML paths, generate sorted '<file-sha256>  <relative-path>' lines, and require the composite manifest SHA-256 before scanning. No online registry rules are permitted."
+}

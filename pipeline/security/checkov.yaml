@@ -1,0 +1,12 @@
+directory:
+  - infrastructure/terraform
+framework:
+  - terraform
+output:
+  - json
+output-file-path: artifacts/checkov.json
+download-external-modules: false
+skip-download: true
+soft-fail: true
+quiet: true
+compact: true

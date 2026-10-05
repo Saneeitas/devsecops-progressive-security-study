@@ -1,0 +1,204 @@
+openapi: 3.0.3
+info:
+  title: DevSecOps Progressive Security Study API
+  version: 1.0.0
+  description: Frozen corpus-v1 API contract for isolated DAST treatment.
+servers:
+  - url: http://api:3000
+paths:
+  /api/health:
+    get:
+      operationId: health
+      responses:
+        '200': {description: Service healthy, content: {application/json: {schema: {$ref: '#/components/schemas/Health'}}}}
+  /api/health/db:
+    get:
+      operationId: databaseHealth
+      responses:
+        '200': {description: Database connected, content: {application/json: {schema: {type: object, properties: {database: {type: string}}, required: [database]}}}}
+  /api/auth/register:
+    post:
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RegisterRequest'}
+            example: {name: Dast Generated User, email: dast-generated@example.invalid, password: DastPassword1, role: user}
+      responses:
+        '201': {description: Registered, content: {application/json: {schema: {$ref: '#/components/schemas/AuthResponse'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/auth/login:
+    post:
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LoginRequest'}
+      responses:
+        '200': {description: Authenticated, content: {application/json: {schema: {$ref: '#/components/schemas/AuthResponse'}}}}
+        '401': {$ref: '#/components/responses/Error'}
+  /api/users/me:
+    get:
+      operationId: getCurrentUser
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {description: Current user, content: {application/json: {schema: {type: object, properties: {user: {$ref: '#/components/schemas/User'}}, required: [user]}}}}
+        '401': {$ref: '#/components/responses/Error'}
+    patch:
+      operationId: updateCurrentUser
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/UserUpdate'}, example: {name: Alice DAST}}}
+      responses:
+        '200': {description: Updated user, content: {application/json: {schema: {type: object, properties: {user: {$ref: '#/components/schemas/User'}}, required: [user]}}}}
+        '400': {$ref: '#/components/responses/Error'}
+  /api/products:
+    get:
+      operationId: listProducts
+      responses:
+        '200': {description: Products, content: {application/json: {schema: {$ref: '#/components/schemas/ProductList'}}}}
+  /api/products/search:
+    get:
+      operationId: searchProducts
+      parameters:
+        - {name: q, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 100}, example: keyboard}
+      responses:
+        '200': {description: Matching products, content: {application/json: {schema: {$ref: '#/components/schemas/ProductList'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+  /api/products/{id}:
+    get:
+      operationId: getProduct
+      parameters:
+        - {$ref: '#/components/parameters/PositiveId'}
+      responses:
+        '200': {description: Product, content: {application/json: {schema: {type: object, properties: {product: {$ref: '#/components/schemas/Product'}}, required: [product]}}}}
+        '404': {$ref: '#/components/responses/Error'}
+  /api/orders:
+    get:
+      operationId: listOrders
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {description: Orders, content: {application/json: {schema: {type: object, properties: {orders: {type: array, items: {$ref: '#/components/schemas/Order'}}}, required: [orders]}}}}
+    post:
+      operationId: createOrder
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/CreateOrder'}, example: {items: [{productId: 2, quantity: 1}]}}}
+      responses:
+        '201': {description: Created order, content: {application/json: {schema: {type: object, properties: {order: {$ref: '#/components/schemas/Order'}}, required: [order]}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/orders/{id}:
+    get:
+      operationId: getOrder
+      description: The frozen clean-reset fixture uses order ID 1 for User B's precondition order.
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer, minimum: 1, default: 1}
+          example: 1
+      responses:
+        '200': {description: Order, content: {application/json: {schema: {type: object, properties: {order: {$ref: '#/components/schemas/Order'}}, required: [order]}}}}
+        '404': {$ref: '#/components/responses/Error'}
+  /api/admin/users:
+    get:
+      operationId: adminListUsers
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {description: Users, content: {application/json: {schema: {type: object}}}}
+        '403': {$ref: '#/components/responses/Error'}
+  /api/admin/orders:
+    get:
+      operationId: adminListOrders
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {description: All orders, content: {application/json: {schema: {type: object}}}}
+        '403': {$ref: '#/components/responses/Error'}
+  /api/admin/diagnostics/ping:
+    get:
+      operationId: adminDiagnosticPing
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: host
+          in: query
+          required: true
+          schema: {type: string, enum: [localhost, 'localhost;printf V02_CANARY']}
+          example: localhost
+      responses:
+        '200': {description: Diagnostic output, content: {application/json: {schema: {type: object}}}}
+        '403': {$ref: '#/components/responses/Error'}
+  /api/admin/products:
+    post:
+      operationId: adminCreateProduct
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/ProductInput'}}}
+      responses:
+        '201': {description: Product created, content: {application/json: {schema: {type: object}}}}
+  /api/admin/products/{id}:
+    patch:
+      operationId: adminUpdateProduct
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/PositiveId'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/ProductUpdate'}, example: {stock: 20}}}
+      responses:
+        '200': {description: Product updated, content: {application/json: {schema: {type: object}}}}
+    delete:
+      operationId: adminDeleteProduct
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/PositiveId'}]
+      responses:
+        '204': {description: Product deleted}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  parameters:
+    PositiveId: {name: id, in: path, required: true, schema: {type: integer, minimum: 1, default: 1}, example: 1}
+  responses:
+    Error: {description: Error response, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  schemas:
+    Health: {type: object, properties: {status: {type: string}, service: {type: string}}, required: [status, service]}
+    Error: {type: object, additionalProperties: true}
+    User:
+      type: object
+      properties: {id: {type: integer}, name: {type: string}, email: {type: string, format: email}, role: {type: string, enum: [user, admin]}, createdAt: {type: string, format: date-time}, updatedAt: {type: string, format: date-time}}
+      required: [id, name, email, role]
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      properties: {name: {type: string, minLength: 2, maxLength: 120}, email: {type: string, format: email, maxLength: 254}, password: {type: string, minLength: 10, maxLength: 128}, role: {type: string, enum: [user, admin]}}
+      required: [name, email, password]
+    LoginRequest: {type: object, additionalProperties: false, properties: {email: {type: string, format: email}, password: {type: string}}, required: [email, password]}
+    AuthResponse: {type: object, properties: {user: {$ref: '#/components/schemas/User'}, token: {type: string}}, required: [user, token]}
+    UserUpdate: {type: object, additionalProperties: false, minProperties: 1, properties: {name: {type: string, minLength: 2, maxLength: 120}, email: {type: string, format: email}, password: {type: string, minLength: 10, maxLength: 128}}}
+    Product:
+      type: object
+      properties: {id: {type: integer}, name: {type: string}, description: {type: string}, price: {type: number}, stock: {type: integer}, createdAt: {type: string, format: date-time}, updatedAt: {type: string, format: date-time}}
+      required: [id, name, description, price, stock]
+    ProductList: {type: object, properties: {products: {type: array, items: {$ref: '#/components/schemas/Product'}}}, required: [products]}
+    ProductInput:
+      type: object
+      additionalProperties: false
+      properties: {name: {type: string, minLength: 2, maxLength: 160}, description: {type: string, maxLength: 2000, default: ''}, price: {type: number, minimum: 0, maximum: 9999999999.99}, stock: {type: integer, minimum: 0, maximum: 1000000}}
+      required: [name, price, stock]
+    ProductUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties: {name: {type: string, minLength: 2, maxLength: 160}, description: {type: string, maxLength: 2000}, price: {type: number, minimum: 0, maximum: 9999999999.99}, stock: {type: integer, minimum: 0, maximum: 1000000}}
+    CreateOrder:
+      type: object
+      additionalProperties: false
+      properties: {items: {type: array, minItems: 1, maxItems: 50, items: {type: object, additionalProperties: false, properties: {productId: {type: integer, minimum: 1}, quantity: {type: integer, minimum: 1, maximum: 100}}, required: [productId, quantity]}}}
+      required: [items]
+    Order: {type: object, additionalProperties: true, properties: {id: {type: integer}, userId: {type: integer}, status: {type: string}, totalAmount: {type: number}, items: {type: array, items: {type: object}}}, required: [id, userId, status, totalAmount, items]}

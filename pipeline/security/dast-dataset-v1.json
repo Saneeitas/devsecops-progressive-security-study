@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "reset": "Destroy the disposable Compose database volume, recreate PostgreSQL, apply schema, and run the existing seed exactly once.",
+  "secret_inputs": ["SEED_ADMIN_PASSWORD", "SEED_USER_PASSWORD", "JWT_SECRET"],
+  "secret_policy": "Generate per-run values outside the repository; redact them and all JWTs from artifacts.",
+  "expected_users": [
+    {"name":"Baseline Admin","email":"admin@example.com","role":"admin","expected_id_after_clean_reset":1},
+    {"name":"Alice Research","email":"alice@example.com","role":"user","expected_id_after_clean_reset":2},
+    {"name":"Bob Research","email":"bob@example.com","role":"user","expected_id_after_clean_reset":3}
+  ],
+  "expected_products": [
+    {"name":"Mechanical Keyboard","expected_id_after_clean_reset":1},
+    {"name":"Wireless Mouse","expected_id_after_clean_reset":2},
+    {"name":"USB-C Hub","expected_id_after_clean_reset":3},
+    {"name":"Laptop Stand","expected_id_after_clean_reset":4},
+    {"name":"Webcam","expected_id_after_clean_reset":5}
+  ],
+  "precondition_order": {
+    "owner":"bob@example.com",
+    "items":[{"productId":1,"quantity":1}],
+    "expected_id_after_clean_reset":1
+  },
+  "actors": {
+    "normal_user_a":"alice@example.com",
+    "normal_user_b":"bob@example.com",
+    "admin":"admin@example.com"
+  }
+}

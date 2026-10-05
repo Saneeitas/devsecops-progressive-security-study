@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "repository": "ghcr.io/aquasecurity/trivy-db",
+  "schema_tag": "2",
+  "artifact_digest": "sha256:3e694df3acc64fdac0abf70766f832898d22349c823c35edeb352231fd648b42",
+  "layer_digest": "sha256:2cf80facc0947c50c3b1a719456497fd7cc2b83e2bc60b13b8842207bac4abd0",
+  "created": "2026-10-01T19:07:06Z",
+  "layer_size_bytes": 125603976,
+  "java_database": {
+    "enabled": false,
+    "reason": "The corpus image is a Node/Debian image and the C4 treatment does not require Java artifact analysis.",
+    "observed_reference_digest": "sha256:07b2edac6f0016ed15693b6254fb872a7628887569cd63c21f1907f35f86122d"
+  },
+  "policy": "Prepare the cache from the artifact digest before measurement. Every measured run uses --skip-db-update and --skip-java-db-update with network updates disabled."
+}
