@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse,csv,json,re,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]; RX=re.compile(r"^P-(C[0-6])-R(00[1-5])$")
+HISTORICAL_VALID_FAILURE_STAGE={"C0-R003"}
 def schedule():
     rows=list(csv.DictReader((ROOT/"research/pilot-schedule-v1.csv").open()))
     assert len(rows)==35
@@ -27,6 +28,8 @@ def runs():
        assert r["classification"]==c, "classification/directory mismatch"
        assert r["timings"]["total_ms"] is not None, "missing total timing"
        assert r["validity"] in {"VALID","INVALID_RETRYABLE","INVALID_NONRETRYABLE"}
+       if r["validity"]=="VALID" and d.name not in HISTORICAL_VALID_FAILURE_STAGE:
+        assert r["outcome"]["failure_stage"] is None, "valid run cannot have failure_stage"
        if c=="pilot": assert RX.match(d.name) and r["configuration"]==RX.match(d.name).group(1)
 def main():
  p=argparse.ArgumentParser(); p.add_argument("--schedule",action="store_true"); p.add_argument("--runs",action="store_true"); a=p.parse_args()

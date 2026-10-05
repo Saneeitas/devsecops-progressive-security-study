@@ -19,6 +19,15 @@ CONTROLS = {
  "SECRET_SCANNING": ("Gitleaks", "8.30.1"), "CONTAINER_SCANNING": ("Trivy", "0.74.0"),
  "IAC_SCANNING": ("Checkov", "3.3.8"), "DAST": ("OWASP ZAP", "2.17.0"),
 }
+INVALIDATING_STATUSES={"ERROR","SCANNER_EXECUTION_ERROR","EXPERIMENT_INFRASTRUCTURE_ERROR","TIMEOUT"}
+
+def outcome_for_stages(stages, security_gate="NOT_APPLICABLE"):
+    """Keep expected corpus behavior and gate results separate from execution failure."""
+    failure=next((s["stage"] for s in stages if s.get("status") in INVALIDATING_STATUSES),None)
+    validity="VALID" if failure is None else "INVALID_RETRYABLE"
+    return {"validity":validity,"success":validity=="VALID","exit_status":0 if validity=="VALID" else 2,
+            "security_gate":security_gate,"failure_stage":failure,
+            "notes":"Detection-to-ground-truth mapping is a separate manual-review stage."}
 
 def cmd(args, cwd=ROOT, timeout=None, env=None):
     return subprocess.run(args, cwd=cwd, text=True, capture_output=True, timeout=timeout, env=env)
@@ -128,9 +137,10 @@ def run(args):
                 lifecycle.cleanup()
                 item=lifecycle.stages[-1]
                 stages.append({"stage":item["stage"],"duration_ms":item["duration_ms"],"status":"OK","exit_code":item["exit_code"]})
-        validity="VALID" if all(s["status"] in ("OK","EXPECTED_CORPUS_TEST_FAILURE") for s in stages) else "INVALID_RETRYABLE"; reason=None
+        reason=None
     by_stage={s["stage"]:s for s in stages}
     controls=[{"control":c,"tool":CONTROLS[c][0],"duration_ms":by_stage.get(c,{}).get("duration_ms")} for c in cfg["controls_enabled"]]
+    outcome=outcome_for_stages(stages) if args.execute else {"validity":"INVALID_RETRYABLE","success":False,"exit_status":2,"security_gate":"NOT_APPLICABLE","failure_stage":reason,"notes":"Dry-run harness validation only; no measured stages executed."}
     record={"schema_version":"1.0","run_id":args.run_id,"classification":args.classification,"configuration":args.config,
       "corpus_commit":CORPUS,"pipeline_commit":git(),"timestamp":started_at,"environment":environment(),
       "cache":{"policy":"controlled_warm","condition":"unknown","primed":False,"dependency_cache_hit":None,"docker_cache_condition":"unknown","notes":"Cache must be warmed by the separate warm command before measured runs."},
@@ -139,8 +149,8 @@ def run(args):
       "tools":[{"control":c,"name":CONTROLS[c][0],"version":CONTROLS[c][1],"executed":False,"native_exit_code":None,"artifact":None} for c in cfg["controls_enabled"]],
       "security":{"finding_count":0,"normalized_finding_count":0,"finding_artifact":"normalized-findings.json","vulnerability_detection":[]},
       "execution":stages,
-      "outcome":{"success":validity=="VALID","exit_status":0 if validity=="VALID" else 2,"security_gate":"NOT_APPLICABLE","failure_stage":reason or next((s["stage"] for s in stages if s["status"]!="OK"),None),"notes":"Detection-to-ground-truth mapping is a separate manual-review stage."},
-      "validity":validity}
+      "outcome":outcome,
+      "validity":outcome["validity"]}
     (run_dir/"run.json").write_text(json.dumps(record,indent=2)+"\n")
     (run_dir/"environment.json").write_text(json.dumps(record["environment"],indent=2)+"\n")
     (run_dir/"timings.json").write_text(json.dumps(record["timings"],indent=2)+"\n")
