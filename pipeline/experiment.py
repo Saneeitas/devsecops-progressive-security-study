@@ -107,21 +107,23 @@ def run(args):
     else:
         stages.append(stage("dependency_setup",lambda:cmd(["npm","ci"],ROOT/"application"),logs))
         stages.append(stage("build",lambda:cmd(["npm","run","build"],ROOT/"application"),logs))
-        stages.append(stage("functional_tests",lambda:cmd(["npm","test","--","--runInBand"],ROOT/"application"),logs))
+        stages.append(stage("functional_tests",lambda:cmd(["npm","test"],ROOT/"application"),logs))
         for control in cfg["controls_enabled"]:
             if control=="DAST":
                 stages.append(stage("DAST",lambda:cmd(["python3","pipeline/dast_lifecycle.py","--run-dir",str(run_dir),"--execute"],timeout=1800),logs))
             else: stages.append(stage(control,lambda c=control:cmd(frozen_command(c,run_dir)),logs))
         validity="VALID" if all(s["status"]=="OK" for s in stages) else "INVALID_RETRYABLE"; reason=None
-    controls=[{"control":c,"tool":CONTROLS[c][0],"duration_ms":next((s["duration_ms"] for s in stages if s["stage"]==c),None)} for c in cfg["controls_enabled"]]
+    by_stage={s["stage"]:s for s in stages}
+    controls=[{"control":c,"tool":CONTROLS[c][0],"duration_ms":by_stage.get(c,{}).get("duration_ms")} for c in cfg["controls_enabled"]]
     record={"schema_version":"1.0","run_id":args.run_id,"classification":args.classification,"configuration":args.config,
       "corpus_commit":CORPUS,"pipeline_commit":git(),"timestamp":started_at,"environment":environment(),
       "cache":{"policy":"controlled_warm","condition":"unknown","primed":False,"dependency_cache_hit":None,"docker_cache_condition":"unknown","notes":"Cache must be warmed by the separate warm command before measured runs."},
-      "timings":{"clock":"monotonic_wall_clock","pipeline_started_at":started_at,"pipeline_ended_at":iso(),"total_ms":ms(started),"setup_ms":None,"build_ms":None,"functional_test_ms":None,"deployment_startup_ms":None,"dast_ms":None,"security_controls":controls},
+      "timings":{"clock":"monotonic_wall_clock","pipeline_started_at":started_at,"pipeline_ended_at":iso(),"total_ms":ms(started),"setup_ms":None,"build_ms":by_stage.get("build",{}).get("duration_ms"),"functional_test_ms":by_stage.get("functional_tests",{}).get("duration_ms"),"deployment_startup_ms":None,"dast_ms":by_stage.get("DAST",{}).get("duration_ms"),"security_controls":controls},
       "resources":{"measurement_available":False,"cpu_utilization_percent":None,"peak_memory_bytes":None,"sampling_interval_ms":None,"method":None},
       "tools":[{"control":c,"name":CONTROLS[c][0],"version":CONTROLS[c][1],"executed":False,"native_exit_code":None,"artifact":None} for c in cfg["controls_enabled"]],
       "security":{"finding_count":0,"normalized_finding_count":0,"finding_artifact":"normalized-findings.json","vulnerability_detection":[]},
-      "outcome":{"success":validity=="VALID","exit_status":0 if validity=="VALID" else 2,"security_gate":"NOT_APPLICABLE","failure_stage":reason,"notes":"Detection-to-ground-truth mapping is a separate manual-review stage."},
+      "execution":stages,
+      "outcome":{"success":validity=="VALID","exit_status":0 if validity=="VALID" else 2,"security_gate":"NOT_APPLICABLE","failure_stage":reason or next((s["stage"] for s in stages if s["status"]!="OK"),None),"notes":"Detection-to-ground-truth mapping is a separate manual-review stage."},
       "validity":validity}
     (run_dir/"run.json").write_text(json.dumps(record,indent=2)+"\n")
     (run_dir/"environment.json").write_text(json.dumps(record["environment"],indent=2)+"\n")

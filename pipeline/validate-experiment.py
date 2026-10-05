@@ -22,6 +22,11 @@ def runs():
        assert d.name not in ids; ids.add(d.name)
        for f in ("run.json","environment.json","timings.json","gate.json","normalized-findings.json"): assert (d/f).exists(),f
        r=json.loads((d/"run.json").read_text())
+       required={"schema_version","run_id","classification","configuration","environment","timings","resources","tools","security","outcome","validity"}
+       assert required <= set(r), "run.json required fields"
+       assert r["classification"]==c, "classification/directory mismatch"
+       assert r["timings"]["total_ms"] is not None, "missing total timing"
+       assert r["validity"] in {"VALID","INVALID_RETRYABLE","INVALID_NONRETRYABLE"}
        if c=="pilot": assert RX.match(d.name) and r["configuration"]==RX.match(d.name).group(1)
 def main():
  p=argparse.ArgumentParser(); p.add_argument("--schedule",action="store_true"); p.add_argument("--runs",action="store_true"); a=p.parse_args()

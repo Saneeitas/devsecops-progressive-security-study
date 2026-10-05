@@ -8,7 +8,7 @@
   "properties": {
     "schema_version": { "const": "1.0" },
     "run_id": { "type": "string", "pattern": "^(P-)?C[0-6]-R[0-9]{3,}$" },
-    "classification": { "enum": ["pilot", "final"] },
+    "classification": { "enum": ["smoke", "pilot", "final"] },
     "configuration": { "enum": ["C0", "C1", "C2", "C3", "C4", "C5", "C6"] },
     "corpus_commit": { "const": "eeb2e772ffb60fb214df8b41866be23be89dcf3f" },
     "pipeline_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
@@ -19,7 +19,9 @@
     "resources": { "$ref": "#/$defs/resources" },
     "tools": { "type": "array", "items": { "$ref": "#/$defs/tool" } },
     "security": { "$ref": "#/$defs/security" },
-    "outcome": { "$ref": "#/$defs/outcome" }
+    "outcome": { "$ref": "#/$defs/outcome" },
+    "validity": { "enum": ["VALID", "INVALID_RETRYABLE", "INVALID_NONRETRYABLE"] },
+    "execution": { "type": "array", "items": { "type": "object" } }
   },
   "$defs": {
     "duration": { "type": ["number", "null"], "minimum": 0 },
@@ -46,7 +48,7 @@
     },
     "security": {
       "type": "object", "additionalProperties": false, "required": ["finding_count", "normalized_finding_count", "finding_artifact", "vulnerability_detection"],
-      "properties": { "finding_count": { "type": "integer", "minimum": 0 }, "normalized_finding_count": { "type": "integer", "minimum": 0 }, "finding_artifact": { "type": ["string", "null"] }, "counts_by_classification": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }, "vulnerability_detection": { "type": "array", "minItems": 12, "maxItems": 12, "items": { "$ref": "#/$defs/detection" } } }
+      "properties": { "finding_count": { "type": "integer", "minimum": 0 }, "normalized_finding_count": { "type": "integer", "minimum": 0 }, "finding_artifact": { "type": ["string", "null"] }, "counts_by_classification": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }, "vulnerability_detection": { "type": "array", "maxItems": 12, "items": { "$ref": "#/$defs/detection" } } }
     },
     "detection": {
       "type": "object", "additionalProperties": false, "required": ["vulnerability_id", "expected_controls", "in_scope", "detected", "detecting_tools", "first_configuration"],
