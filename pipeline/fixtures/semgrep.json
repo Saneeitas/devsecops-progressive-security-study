@@ -1,0 +1,1 @@
+{"results":[{"check_id":"fixture.rule","path":"application/src/example.ts","start":{"line":7},"extra":{"message":"synthetic parser fixture","severity":"ERROR","metadata":{}}}]}
