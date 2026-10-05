@@ -8,6 +8,7 @@ turning them into negative findings.
 from __future__ import annotations
 import argparse, datetime as dt, hashlib, json, os, platform, re, shutil, subprocess, sys, time
 from pathlib import Path
+from common_lifecycle import DatabaseLifecycle, expected_functional_invariant
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS = "eeb2e772ffb60fb214df8b41866be23be89dcf3f"
@@ -19,8 +20,8 @@ CONTROLS = {
  "IAC_SCANNING": ("Checkov", "3.3.8"), "DAST": ("OWASP ZAP", "2.17.0"),
 }
 
-def cmd(args, cwd=ROOT, timeout=None):
-    return subprocess.run(args, cwd=cwd, text=True, capture_output=True, timeout=timeout)
+def cmd(args, cwd=ROOT, timeout=None, env=None):
+    return subprocess.run(args, cwd=cwd, text=True, capture_output=True, timeout=timeout, env=env)
 def sha(path):
     return hashlib.sha256((ROOT/path).read_bytes()).hexdigest()
 def load(path): return json.loads((ROOT/path).read_text())
@@ -99,26 +100,41 @@ def run(args):
         outcome={"validity":"INVALID_NONRETRYABLE","reason":"EXPERIMENT_INFRASTRUCTURE_ERROR: artifact preflight failed"}
         (run_dir/"run.json").write_text(json.dumps({"run_id":args.run_id,"classification":args.classification,"configuration":args.config,"outcome":outcome},indent=2)+"\n")
         return 2
-    cfg=configuration(args.config); stages=[]
+    cfg=configuration(args.config); stages=[]; lifecycle=None
     # Measured production execution is intentionally explicit; no hidden scanner substitution.
     if not args.execute:
         (run_dir/"README.txt").write_text("DRY-RUN harness validation only; no pipeline stage or scanner executed.\n")
         validity="INVALID_RETRYABLE"; reason="DRY_RUN_NOT_A_MEASURED_EXPERIMENT"
     else:
-        stages.append(stage("dependency_setup",lambda:cmd(["npm","ci"],ROOT/"application"),logs))
-        stages.append(stage("build",lambda:cmd(["npm","run","build"],ROOT/"application"),logs))
-        stages.append(stage("functional_tests",lambda:cmd(["npm","test"],ROOT/"application"),logs))
-        for control in cfg["controls_enabled"]:
-            if control=="DAST":
-                stages.append(stage("DAST",lambda:cmd(["python3","pipeline/dast_lifecycle.py","--run-dir",str(run_dir),"--execute"],timeout=1800),logs))
-            else: stages.append(stage(control,lambda c=control:cmd(frozen_command(c,run_dir)),logs))
-        validity="VALID" if all(s["status"]=="OK" for s in stages) else "INVALID_RETRYABLE"; reason=None
+        try:
+            stages.append(stage("dependency_setup",lambda:cmd(["npm","ci"],ROOT/"application"),logs))
+            lifecycle=DatabaseLifecycle(args.run_id); test_env=lifecycle.start(); lifecycle.migrate_seed()
+            for item in lifecycle.stages:
+                stages.append({"stage":item["stage"],"duration_ms":item["duration_ms"],"status":"OK","exit_code":item["exit_code"]})
+            stages.append(stage("build",lambda:cmd(["npm","run","build"],ROOT/"application",env=test_env),logs))
+            test_result=lifecycle.tests()
+            (logs/"functional_tests.stdout.log").write_text(test_result.stdout or "")
+            (logs/"functional_tests.stderr.log").write_text(test_result.stderr or "")
+            invariant=expected_functional_invariant(test_result)
+            stages.append({"stage":"functional_tests","duration_ms":lifecycle.stages[-1]["duration_ms"],"status":"EXPECTED_CORPUS_TEST_FAILURE" if invariant["status"]=="EXPECTED_CORPUS_TEST_FAILURE" else "ERROR","exit_code":test_result.returncode,"invariant":invariant})
+            for control in cfg["controls_enabled"]:
+                if control=="DAST":
+                    stages.append(stage("DAST",lambda:cmd(["python3","pipeline/dast_lifecycle.py","--run-dir",str(run_dir),"--execute"],timeout=1800,env=test_env),logs))
+                else: stages.append(stage(control,lambda c=control:cmd(frozen_command(c,run_dir),env=test_env),logs))
+        except Exception as error:
+            stages.append({"stage":"common_lifecycle","duration_ms":None,"status":"ERROR","exit_code":None,"error":repr(error)})
+        finally:
+            if lifecycle:
+                lifecycle.cleanup()
+                item=lifecycle.stages[-1]
+                stages.append({"stage":item["stage"],"duration_ms":item["duration_ms"],"status":"OK","exit_code":item["exit_code"]})
+        validity="VALID" if all(s["status"] in ("OK","EXPECTED_CORPUS_TEST_FAILURE") for s in stages) else "INVALID_RETRYABLE"; reason=None
     by_stage={s["stage"]:s for s in stages}
     controls=[{"control":c,"tool":CONTROLS[c][0],"duration_ms":by_stage.get(c,{}).get("duration_ms")} for c in cfg["controls_enabled"]]
     record={"schema_version":"1.0","run_id":args.run_id,"classification":args.classification,"configuration":args.config,
       "corpus_commit":CORPUS,"pipeline_commit":git(),"timestamp":started_at,"environment":environment(),
       "cache":{"policy":"controlled_warm","condition":"unknown","primed":False,"dependency_cache_hit":None,"docker_cache_condition":"unknown","notes":"Cache must be warmed by the separate warm command before measured runs."},
-      "timings":{"clock":"monotonic_wall_clock","pipeline_started_at":started_at,"pipeline_ended_at":iso(),"total_ms":ms(started),"setup_ms":None,"build_ms":by_stage.get("build",{}).get("duration_ms"),"functional_test_ms":by_stage.get("functional_tests",{}).get("duration_ms"),"deployment_startup_ms":None,"dast_ms":by_stage.get("DAST",{}).get("duration_ms"),"security_controls":controls},
+      "timings":{"clock":"monotonic_wall_clock","pipeline_started_at":started_at,"pipeline_ended_at":iso(),"total_ms":ms(started),"setup_ms":round(sum(s.get("duration_ms") or 0 for s in stages if s["stage"] in ("database_container_start","database_readiness","migration","seed")),3),"build_ms":by_stage.get("build",{}).get("duration_ms"),"functional_test_ms":by_stage.get("functional_tests",{}).get("duration_ms"),"deployment_startup_ms":None,"dast_ms":by_stage.get("DAST",{}).get("duration_ms"),"security_controls":controls},
       "resources":{"measurement_available":False,"cpu_utilization_percent":None,"peak_memory_bytes":None,"sampling_interval_ms":None,"method":None},
       "tools":[{"control":c,"name":CONTROLS[c][0],"version":CONTROLS[c][1],"executed":False,"native_exit_code":None,"artifact":None} for c in cfg["controls_enabled"]],
       "security":{"finding_count":0,"normalized_finding_count":0,"finding_artifact":"normalized-findings.json","vulnerability_detection":[]},

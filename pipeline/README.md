@@ -13,6 +13,34 @@ Run python3 pipeline/experiment.py warm separately before a measured block.
 Warm-up is not a measured run. Record unavailable cache preconditions as
 invalid rather than mixing cache states.
 
+## Common database and functional-test lifecycle
+
+Every C0-C6 run creates a disposable PostgreSQL 16-alpine container and a
+unique Docker volume named from the run ID. The container maps PostgreSQL to an
+ephemeral loopback port, so it does not depend on a developer database or a
+fixed host port. The harness waits with pg_isready, constructs a runtime-only
+DATABASE_URL and TEST_DATABASE_URL, applies the existing migration, runs the
+existing deterministic seed, and injects the environment into the existing
+functional test process. Runtime database passwords, JWT secrets, and seed
+passwords are generated per run and never written to artifacts or logs.
+
+Setup timing is the aggregate of container start, readiness, migration, and
+seed stages; each stage is also retained in the execution record. Cleanup
+removes only the run-owned container and volume on success, test failure,
+scanner failure, timeout, and handled interruption. Run evidence is retained.
+
+The frozen corpus functional invariant is exactly 12 tests: 11 pass and one
+fails with the title "does not disclose another user's order". This is the
+retained V04 ownership regression: the vulnerable corpus returns 200 where the
+secure-suite assertion expects 404. The harness accepts only that exact
+one-failure summary as EXPECTED_CORPUS_TEST_FAILURE. Any other test count,
+failed title, result, or inability to start tests is an unexpected functional
+failure and invalidates the run.
+
+For C6, this common lifecycle precedes the separate frozen DAST reset. The
+DAST contract then performs its own fresh reset/seed immediately before its
+two API passes; it does not reuse state from functional tests.
+
 ## Smoke and measured execution
 
 Use ./pipeline/run-experiment.sh --config C3 --run-id C3-R001 --class smoke
