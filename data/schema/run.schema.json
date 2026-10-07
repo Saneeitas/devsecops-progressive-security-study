@@ -28,7 +28,7 @@
     "environment": {
       "type": "object", "additionalProperties": false,
       "required": ["os", "architecture", "runner_type", "node_version", "postgresql_version", "docker_version"],
-      "properties": { "os": { "type": "string" }, "os_version": { "type": ["string", "null"] }, "architecture": { "type": "string" }, "runner_type": { "type": "string" }, "runner_name": { "type": ["string", "null"] }, "cpu": { "type": ["string", "null"] }, "cpu_count": { "type": ["integer", "null"], "minimum": 1 }, "memory_bytes": { "type": ["integer", "null"], "minimum": 0 }, "node_version": { "type": "string" }, "postgresql_version": { "type": "string" }, "docker_version": { "type": "string" }, "ci_metadata": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } } }
+      "properties": { "os": { "type": "string" }, "os_version": { "type": ["string", "null"] }, "architecture": { "type": "string" }, "runner_type": { "type": "string" }, "runner_name": { "type": ["string", "null"] }, "cpu": { "type": ["string", "null"] }, "cpu_count": { "type": ["integer", "null"], "minimum": 1 }, "memory_bytes": { "type": ["integer", "null"], "minimum": 0 }, "node_version": { "type": "string" }, "postgresql_version": { "type": ["string", "null"] }, "docker_version": { "type": ["string", "null"] }, "ci_metadata": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } } }
     },
     "cache": {
       "type": "object", "additionalProperties": false, "required": ["policy", "condition", "primed"],
@@ -56,7 +56,7 @@
     },
     "outcome": {
       "type": "object", "additionalProperties": false, "required": ["success", "exit_status", "security_gate", "failure_stage"],
-      "properties": { "success": { "type": "boolean" }, "exit_status": { "type": "integer" }, "security_gate": { "enum": ["PASS", "FAIL", "NOT_APPLICABLE", "ERROR"] }, "failure_stage": { "type": ["string", "null"] }, "notes": { "type": ["string", "null"] } }
+      "properties": { "success": { "type": "boolean" }, "exit_status": { "type": "integer" }, "security_gate": { "enum": ["PASS", "FAIL", "NOT_APPLICABLE", "ERROR"] }, "failure_stage": { "type": ["string", "null"] }, "notes": { "type": ["string", "null"] }, "validity": { "enum": ["VALID", "INVALID_RETRYABLE", "INVALID_NONRETRYABLE"] } }
     }
   }
 }

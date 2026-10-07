@@ -8,7 +8,9 @@
   "md5_base64": "tkWSeWnYUpzWbsr9u+8lXA==",
   "crc32c_base64": "okfSlg==",
   "size_bytes": 217297800,
-  "cache_layout": "osv-scanner/npm/all.zip",
-  "policy": "Retrieve this exact immutable GCS generation during environment preparation, verify size and MD5, mount it as OSV-Scanner's local database, and prohibit network access/update during measured runs.",
-  "scanner_flags": ["--offline-vulnerabilities", "--local-db-path", "<FROZEN_DB_ROOT>"]
+  "cache_root_environment_variable": "OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY",
+  "cache_layout": "osv-scalibr/npm/all.zip",
+  "policy": "PA-001: retrieve this exact immutable GCS generation during environment preparation, verify size and MD5, place the unchanged archive at <controlled-cache-root>/osv-scalibr/npm/all.zip, set OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY=<controlled-cache-root>, and run OSV-Scanner 2.6.0 with --offline. Do not download or update advisory data during measured runs.",
+  "scanner_flags": ["--offline", "--offline-vulnerabilities"],
+  "prohibited_flags": ["--local-db-path", "--download-offline-databases"]
 }

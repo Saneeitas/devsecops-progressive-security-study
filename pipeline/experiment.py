@@ -124,7 +124,7 @@ def frozen_command(control, run_dir):
     raw=run_dir/"raw"; raw.mkdir(exist_ok=True)
     if control=="SAST":
         return ["docker","run","--pull=never","--rm","--network","none","--platform","linux/amd64","-v",f"{ROOT}:/src:ro","-v",f"{RUNTIME_ROOT}/semgrep-rules:/rules:ro",SEM_IMAGE,"semgrep","scan","--config","/rules","--json","--output","/dev/stdout","--error","--include","*.ts","--exclude","application/tests/**","--exclude","application/dist/**","--exclude","application/node_modules/**","/src/application/src"]
-    if control=="SCA": return [str(RUNTIME_ROOT/"bin/osv-scanner"),"scan","source","--lockfile","application/package-lock.json","--format","json","--output-file",str(raw/"osv.json"),"--offline","--offline-vulnerabilities","--local-db-path",str(RUNTIME_ROOT/"cache/osv")]
+    if control=="SCA": return [str(RUNTIME_ROOT/"bin/osv-scanner"),"scan","source","--lockfile","application/package-lock.json","--format","json","--output-file",str(raw/"osv.json"),"--offline","--offline-vulnerabilities"]
     if control=="SECRET_SCANNING": return [str(RUNTIME_ROOT/"bin/gitleaks"),"dir",".","--config","pipeline/security/gitleaks.toml","--report-format","json","--report-path",str(raw/"gitleaks.json"),"--exit-code","1","--no-banner"]
     if control=="CONTAINER_SCANNING":
         iid=run_dir/"container-image.iid"
@@ -132,6 +132,12 @@ def frozen_command(control, run_dir):
         return ["docker","run","--pull=never","--rm","--network","none","-v","/var/run/docker.sock:/var/run/docker.sock","-v",f"{RUNTIME_ROOT}/cache/trivy:/root/.cache/trivy:ro",TRIVY_IMAGE,"image","--scanners","vuln","--format","json","--skip-db-update","--skip-java-db-update","--severity","UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL","--ignore-unfixed=false","--exit-code","1",iid.read_text().strip()]
     if control=="IAC_SCANNING": return [str(RUNTIME_ROOT/"venv/checkov/bin/checkov"),"--directory","infrastructure/terraform","--framework","terraform","--config-file","pipeline/security/checkov.yaml","--output","json","--output-file-path",str(raw/"checkov.json"),"--skip-download","--soft-fail"]
     raise ValueError("DAST requires lifecycle runner")
+
+def control_environment(control, base_env):
+    result=dict(base_env)
+    if control=="SCA":
+        result["OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY"]=str(RUNTIME_ROOT/"cache/osv")
+    return result
 
 def normalize_scanner(control, result, run_dir):
     raw=run_dir/"raw"; name={"SAST":"semgrep","SCA":"osv","SECRET_SCANNING":"gitleaks","CONTAINER_SCANNING":"trivy","IAC_SCANNING":"checkov"}[control]
@@ -157,7 +163,7 @@ def secret_artifact_check(run_dir, values):
     return {"stage":"secret_artifact_check","status":"ERROR" if matches else "OK","duration_ms":None,"exit_code":1 if matches else 0,"files_checked":checked,"leaked_file_count":len(matches)}
 
 def execute_control(control, run_dir, env):
-    control_env=dict(env)
+    control_env=control_environment(control,env)
     if control=="IAC_SCANNING":
         for key in ("BC_API_KEY","PRISMA_API_URL","CKV_CHECK","CKV_SKIP_CHECK","CKV_FRAMEWORK","CHECKOV_EXPERIMENTAL_CHECKS_DIR"): control_env.pop(key,None)
     scanner_started=time.monotonic_ns()

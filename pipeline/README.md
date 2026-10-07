@@ -19,11 +19,16 @@ database, or frozen checksum fails preflight; measured scanner containers use
 Trivy OCI layer is checksum-verified and unpacked before measurement. C0
 requires no scanner artifacts.
 
-The current OSV-Scanner 2.6.0 CLI does not provide the frozen descriptor's
-`--local-db-path` option. The provisioning report marks OSV NOT_READY, and C2-C6
-are blocked before measurement until a protocol amendment resolves the frozen
-CLI/database interface. Do not replace the option or use a live advisory
-service without that amendment.
+The original frozen specification's OSV `--local-db-path` mechanism was
+unsupported by OSV-Scanner 2.6.0. Protocol Amendment `PA-001`
+(`research/protocol-amendment-001-osv-offline-cache.md`) supersedes that
+invocation only. Provisioning verifies the unchanged frozen npm archive at
+`${DEVSECOPS_RUNTIME_ROOT}/cache/osv/osv-scalibr/npm/all.zip`; measured runs set
+`OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY` to `${DEVSECOPS_RUNTIME_ROOT}/cache/osv`
+and use `--offline`. Do not use `--local-db-path` or
+`--download-offline-databases`, and do not refresh the advisory data during a
+measured run. The original specification and its error remain historically
+recoverable in the `experiment-spec-v1` tag.
 
 Run python3 pipeline/experiment.py warm separately before a measured block.
 Warm-up is not a measured run. It prepares npm and Docker caches and records

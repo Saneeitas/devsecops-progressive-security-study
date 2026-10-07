@@ -4,6 +4,11 @@
 
 This is a pre-result specification for `corpus-v1` (`eeb2e772ffb60fb214df8b41866be23be89dcf3f`). Commands below are future invocation patterns and have not been executed. Each tool is restricted to its assigned control role. Tool binaries/images, rule bundles, advisory databases, and scan configuration must be frozen before the pilot and recorded in every run.
 
+The original frozen specification's OSV local-cache invocation is superseded
+only as described in `research/protocol-amendment-001-osv-offline-cache.md`
+(`PA-001`). The original `--local-db-path` specification remains preserved in
+the `experiment-spec-v1` checkpoint.
+
 ## Version snapshot
 
 | Configuration | Control | Tool | Version/tag | Release date | Intended distribution |
@@ -45,13 +50,25 @@ JSON is the raw output. Capture Semgrep's native exit code before a wrapper cont
 **Future invocation pattern (not executed):**
 
 ```sh
+OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY="$OSV_CACHE_ROOT" \
 osv-scanner scan source \
   --lockfile application/package-lock.json \
   --format json \
-  --output-file artifacts/osv-scanner.json
+  --output-file artifacts/osv-scanner.json \
+  --offline \
+  --offline-vulnerabilities
 ```
 
-JSON is the raw output. Native exit 0 means no known findings, 1 means findings, 127 is a general error, and 128 means no packages found; preserve it and continue via the orchestration wrapper. Freeze the OSV database snapshot or query response provenance before the pilot so all configurations/runs use the same advisory state. Verify with `osv-scanner --version` and require `2.6.0`.
+Set `$OSV_CACHE_ROOT` to the controlled cache root containing the unchanged
+archive at `osv-scalibr/npm/all.zip`. Do not use `--local-db-path` or
+`--download-offline-databases`. The measured invocation uses OSV-Scanner 2.6.0
+with `--offline`, performs no advisory update/download, and has no network
+access. The version-specific documentation/runtime cache-layout discrepancy
+and synthetic-only verification are recorded in PA-001. JSON is the raw
+output. Native exit 0 means no known findings, 1 means findings, 127 is a
+general error, and 128 means no packages found; preserve it and continue via
+the orchestration wrapper. Verify with `osv-scanner --version` and require
+`2.6.0`.
 
 ## C3: Gitleaks secret scanning
 

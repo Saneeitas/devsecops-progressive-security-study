@@ -124,7 +124,20 @@ def runtime_preflight(controls):
         if name == "zap":
             ok = ok and item.get("addon_inventory_match") is True
         if name == "osv":
-            ok = ok and item.get("required_frozen_flags_verified") is True
+            osv_flags=set(item.get("verified_supported_flags", []))
+            treatment_flags=set(item.get("treatment_flags", []))
+            prohibited_flags=set(item.get("prohibited_treatment_flags", []))
+            osv_policy=item.get("offline_policy", {})
+            ok = (ok
+                  and item.get("observed_version") == "2.6.0"
+                  and {"--lockfile", "--offline", "--offline-vulnerabilities"}.issubset(osv_flags)
+                  and not prohibited_flags.intersection(treatment_flags)
+                  and "--local-db-path" in prohibited_flags
+                  and "--download-offline-databases" in prohibited_flags
+                  and osv_policy.get("environment_variable") == "OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY"
+                  and osv_policy.get("cache_layout") == "osv-scalibr/npm/all.zip"
+                  and osv_policy.get("network_disabled") is True
+                  and osv_policy.get("archive_ready") is True)
         checks.append({"tool": name, "status": "READY" if ok else "NOT_READY", "version": item.get("observed_version"), "runtime_path": path, "artifacts": artifact_checks, "reason": None if ok else item.get("reason", "runtime artifact missing, stale, or changed")})
     frozen_ok = state.get("frozen_inputs_status") == "READY"
     return {"status": "PASS" if frozen_ok and all(x["status"] == "READY" for x in checks) else "FAIL", "frozen_inputs_status": "READY" if frozen_ok else "NOT_READY", "required": required, "checked_at": checked_at, "tools": checks}

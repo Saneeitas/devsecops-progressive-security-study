@@ -16,5 +16,6 @@ The following conditions are frozen for final experimentation. Changing one requ
 | Finding normalization | Deduplication keys, severity mapping, location handling, corpus mapping, and adjudication rules are versioned and frozen before results |
 | Frozen artifacts | The exact artifact identities and checksums in `research/experiment-artifacts-v1.json`, including container manifests, rules, databases, configurations, OpenAPI contract, DAST dataset, and ZAP inventory, are immutable for final runs |
 | DAST contract | The two-pass authenticated DAST behavior and deterministic clean-reset dataset in `research/dast-test-contract-v1.md` remain unchanged |
+| OSV local-cache invocation | PA-001 supersedes only the original unsupported C2 `--local-db-path` mechanism. OSV-Scanner 2.6.0 uses the controlled `OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY` root, `osv-scalibr/npm/all.zip`, and `--offline`; the frozen archive, target, and SCA scope remain fixed |
 
 Changing a frozen artifact requires either a documented protocol amendment before final data collection or a new experiment version with a separate dataset. The pipeline commit SHA, run metadata, deviations, failures, and tool exit results must be recorded for every run. Raw scanner output is immutable. Pilot records cannot enter the final dataset. No insecure Terraform is deployed as part of this experiment.

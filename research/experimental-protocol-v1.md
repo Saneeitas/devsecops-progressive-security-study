@@ -41,6 +41,11 @@ Configurations are cumulative. A configuration contains every control in its pre
 
 Exact versions and configurations will be frozen separately before experimentation; the latest version must not be selected automatically. Conclusions concern these selected implementations and cannot automatically be generalized to every tool in a category. Marginal contribution depends partly on this predefined ordering and must not be interpreted as the universal intrinsic value of the newly added category. Overlapping detections remain attributable to every detecting tool, while first detection is recorded by configuration.
 
+The original frozen C2 OSV local-cache invocation was corrected before any
+corpus OSV outcome by protocol amendment `PA-001`; see
+`research/protocol-amendment-001-osv-offline-cache.md`. This amendment changes
+only the executable cache mechanism and runtime placement.
+
 ## Experimental unit and run identity
 
 One experimental unit is one complete execution of one specified pipeline configuration against the exact frozen `corpus-v1` application state. Each final run has ID `C<configuration>-R<run-number>`, using three-digit run numbers, such as `C0-R001`, `C1-R001`, and `C6-R025`.

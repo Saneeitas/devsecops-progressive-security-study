@@ -5,7 +5,7 @@ This command is intentionally separate from measured runs. It only inspects
 versions, image identities, and frozen checksums; it never scans corpus files.
 """
 from __future__ import annotations
-import base64, datetime as dt, hashlib, json, os, platform, subprocess, sys, tarfile, uuid
+import base64, datetime as dt, hashlib, json, os, platform, shutil, subprocess, sys, tarfile, uuid
 from pathlib import Path
 from tool_runtime import ROOT,RUNTIME_ROOT,STATE,digest
 
@@ -60,6 +60,25 @@ def image_item(name,version,ref,expected_digest,platform_digest,verify_args,inde
  vcode,vout=run_image_version(verify_args,version,300) if ready else (127,"pinned image missing or digest does not match")
  ready=ready and vcode==0 and version in vout
  return {"name":name,"expected_version":version,"observed_version":version if vcode==0 and version in vout else None,"version_command_output_first_line":vout.splitlines()[0] if vcode==0 and vout else None,"provisioning_method":"official Linux/amd64 image pinned by frozen platform manifest digest","kind":"image","runtime_path":ref,"expected_sha256":expected_digest,"observed_sha256":expected_digest if ready else None,"expected_index_digest":index_digest,"expected_platform_manifest_digest":platform_digest,"observed_platform":"linux/amd64" if ready else None,"status":"READY" if ready else "NOT_READY","verified_at":dt.datetime.now(dt.timezone.utc).isoformat(),"reason":None if ready else (out or vout)}
+def md5_base64(path):
+ h=hashlib.md5()
+ with path.open("rb") as stream:
+  for block in iter(lambda:stream.read(1024*1024),b""): h.update(block)
+ return base64.b64encode(h.digest()).decode()
+def prepare_osv_database(descriptor):
+ root=RUNTIME_ROOT/"cache/osv"; source=root/"npm-all.zip"; target=root/descriptor["cache_layout"]
+ if not source.is_file(): return False,target
+ try:
+  source_ok=source.stat().st_size==descriptor["size_bytes"] and md5_base64(source)==descriptor["md5_base64"]
+  if not source_ok: return False,target
+  target.parent.mkdir(parents=True,exist_ok=True)
+  if not target.exists():
+   try: os.link(source,target)
+   except OSError: shutil.copyfile(source,target)
+  target_ok=target.is_file() and target.stat().st_size==descriptor["size_bytes"] and md5_base64(target)==descriptor["md5_base64"]
+  return target_ok,target
+ except OSError:
+  return False,target
 def main():
  RUNTIME_ROOT.mkdir(parents=True,exist_ok=True); (ROOT/"pipeline/runtime").mkdir(exist_ok=True)
  tool={x["control"]:x for x in VERSIONS["tools"]}; state={"schema_version":"1.0","machine_local":True,"platform":platform.platform(),"verified_at":dt.datetime.now(dt.timezone.utc).isoformat(),"tools":{}}
@@ -68,11 +87,22 @@ def main():
  osv=tool["SCA"]; osvpath=RUNTIME_ROOT/"bin/osv-scanner"; osvitem=file_item("OSV-Scanner",osv["version"],osvpath,[str(osvpath),"--version"])
  if osvpath.exists():
   _,help_text=run([str(osvpath),"scan","source","--help"])
-  # The frozen descriptor requires --local-db-path. Do not substitute the
-  # newer CLI's different cache-download behavior if this pinned build lacks it.
-  osvitem["required_frozen_flags_verified"]="--local-db-path" in help_text
-  if not osvitem["required_frozen_flags_verified"]:
-   osvitem.update({"status":"NOT_READY","reason":"Frozen OSV treatment requires --local-db-path, which OSV-Scanner 2.6.0 does not expose; protocol amendment is required before running this control."})
+  descriptor=json.loads((ROOT/"pipeline/security/osv-database-v1.json").read_text())
+  supported={flag for flag in ("--lockfile","--offline","--offline-vulnerabilities","--local-db-path","--download-offline-databases") if flag in help_text}
+  required=set(descriptor["scanner_flags"])
+  required_supported=required|{"--lockfile"}
+  archive_ready,db_target=prepare_osv_database(descriptor)
+  first=(osvitem.get("observed_version") or "").splitlines()[0]
+  osv_version=first.rsplit(" ",1)[-1] if first.startswith("osv-scanner version:") else None
+  osvitem["observed_version"]=osv_version
+  osvitem["verified_supported_flags"]=sorted(required_supported & supported)
+  osvitem["observed_cli_flags"]=sorted(supported)
+  osvitem["treatment_flags"]=descriptor["scanner_flags"]
+  osvitem["prohibited_treatment_flags"]=descriptor["prohibited_flags"]
+  osvitem["offline_policy"]={"environment_variable":descriptor["cache_root_environment_variable"],"cache_root":"${DEVSECOPS_RUNTIME_ROOT}/cache/osv","database_path":"${DEVSECOPS_RUNTIME_ROOT}/cache/osv/"+descriptor["cache_layout"],"cache_layout":descriptor["cache_layout"],"network_disabled":"--offline" in required,"archive_ready":archive_ready}
+  no_unsupported=("--local-db-path" not in required and "--download-offline-databases" not in required)
+  if (osv_version!=osv["version"] or not required_supported.issubset(supported) or not no_unsupported or not archive_ready):
+   osvitem.update({"status":"NOT_READY","reason":"OSV version, PA-001 offline flags, or unchanged frozen archive cache layout failed verification."})
  state["tools"]["osv"]=osvitem
  g=tool["SECRET_SCANNING"]; gp=RUNTIME_ROOT/"bin/gitleaks"; state["tools"]["gitleaks"]=file_item("Gitleaks",g["version"],gp,[str(gp),"version"])
  tr=tool["CONTAINER_SCANNING"]; trplatform=tr["architecture"]["linux/amd64"]; trref="docker.io/aquasec/trivy@"+trplatform; state["tools"]["trivy"]=image_item("Trivy",tr["version"],trref,trplatform,trplatform,["docker","run","--rm","--network","none","--platform","linux/amd64",trref,"--version"],tr["container_digest"])
@@ -103,10 +133,10 @@ def main():
   zapitem["observed_addon_count"]=len(observed_rows)
   if not zapitem["addon_inventory_match"]: zapitem.update({"status":"NOT_READY","reason":"installed ZAP add-on names/versions differ from frozen inventory"})
  state["tools"]["zap"]=zapitem
- frozen={"semgrep_rules":"pipeline/security/semgrep-rules-v1.json","gitleaks_config":"pipeline/security/gitleaks.toml","checkov_config":"pipeline/security/checkov.yaml","zap_inventory":"pipeline/security/zap-addon-inventory-v1.txt","openapi":"pipeline/security/openapi-corpus-v1.yaml","zap_context":"pipeline/security/zap-context-v1.json","zap_rules":"pipeline/security/zap-rules.conf","dast_dataset":"pipeline/security/dast-dataset-v1.json","osv_descriptor":"pipeline/security/osv-database-v1.json","trivy_descriptor":"pipeline/security/trivy-database-v1.json","dast_contract":"research/dast-test-contract-v1.md"}
+ frozen={"semgrep_rules":"pipeline/security/semgrep-rules-v1.json","gitleaks_config":"pipeline/security/gitleaks.toml","checkov_config":"pipeline/security/checkov.yaml","zap_inventory":"pipeline/security/zap-addon-inventory-v1.txt","openapi":"pipeline/security/openapi-corpus-v1.yaml","zap_context":"pipeline/security/zap-context-v1.json","zap_rules":"pipeline/security/zap-rules.conf","dast_dataset":"pipeline/security/dast-dataset-v1.json","osv_descriptor":"pipeline/security/osv-database-v1.json","trivy_descriptor":"pipeline/security/trivy-database-v1.json","dast_contract":"research/dast-test-contract-v1.md","pa001":"research/protocol-amendment-001-osv-offline-cache.md"}
  manifest=json.loads((ROOT/"research/experiment-artifacts-v1.json").read_text())
  state["frozen_inputs"]={k:{"path":v,"sha256":digest(ROOT/v)} for k,v in frozen.items()}
- expected={"semgrep_rules":manifest["semgrep_rules"],"gitleaks_config":manifest["configurations"]["gitleaks"],"checkov_config":manifest["configurations"]["checkov"],"zap_inventory":manifest["zap_addons"]["inventory"],"openapi":manifest["dast"]["openapi"],"zap_context":manifest["dast"]["context"],"zap_rules":manifest["configurations"]["zap_rules"],"dast_dataset":manifest["dast"]["dataset"],"osv_descriptor":manifest["osv_advisory_database"],"trivy_descriptor":manifest["trivy_database"],"dast_contract":manifest["dast"]["contract"]}
+ expected={"semgrep_rules":manifest["semgrep_rules"],"gitleaks_config":manifest["configurations"]["gitleaks"],"checkov_config":manifest["configurations"]["checkov"],"zap_inventory":manifest["zap_addons"]["inventory"],"openapi":manifest["dast"]["openapi"],"zap_context":manifest["dast"]["context"],"zap_rules":manifest["configurations"]["zap_rules"],"dast_dataset":manifest["dast"]["dataset"],"osv_descriptor":manifest["osv_advisory_database"],"trivy_descriptor":manifest["trivy_database"],"dast_contract":manifest["dast"]["contract"],"pa001":manifest["protocol_amendments"]["pa001"]}
  for key,value in expected.items(): state["frozen_inputs"][key]["status"]="READY" if state["frozen_inputs"][key]["sha256"]==value["sha256"] else "NOT_READY"
  artifacts={}
  semarchive=RUNTIME_ROOT/"cache/semgrep-rules-v1.tar.gz"; semmeta=json.loads((ROOT/"pipeline/security/semgrep-rules-v1.json").read_text()); semroot=RUNTIME_ROOT/"semgrep-rules"
@@ -126,11 +156,11 @@ def main():
   ok=len(entries)==semmeta["selection"]["rule_file_count"] and composite==semmeta["selection"]["sorted_file_digest_manifest_sha256"]
   artifacts["semgrep_rules"]={"kind":"directory","runtime_path":"${DEVSECOPS_RUNTIME_ROOT}/semgrep-rules","expected_sha256":semmeta["selection"]["sorted_file_digest_manifest_sha256"],"observed_sha256":composite,"status":"READY" if ok else "NOT_READY"}
  except Exception as e: artifacts["semgrep_rules"]={"kind":"directory","runtime_path":"${DEVSECOPS_RUNTIME_ROOT}/semgrep-rules","status":"NOT_READY","reason":repr(e)}
- osvmeta=json.loads((ROOT/"pipeline/security/osv-database-v1.json").read_text()); osvdb=RUNTIME_ROOT/"cache/osv/npm-all.zip"
+ osvmeta=json.loads((ROOT/"pipeline/security/osv-database-v1.json").read_text()); osvdb=RUNTIME_ROOT/"cache/osv"/osvmeta["cache_layout"]
  if osvdb.exists():
-  raw=osvdb.read_bytes(); actual_b64=base64.b64encode(hashlib.md5(raw).digest()).decode(); ok=len(raw)==osvmeta["size_bytes"] and actual_b64==osvmeta["md5_base64"]
-  artifacts["osv_database"]={"kind":"file","runtime_path":"${DEVSECOPS_RUNTIME_ROOT}/cache/osv/npm-all.zip","expected_md5_base64":osvmeta["md5_base64"],"observed_md5_base64":actual_b64,"expected_size_bytes":osvmeta["size_bytes"],"observed_size_bytes":len(raw),"status":"READY" if ok else "NOT_READY"}
- else: artifacts["osv_database"]={"kind":"file","runtime_path":"${DEVSECOPS_RUNTIME_ROOT}/cache/osv/npm-all.zip","status":"NOT_READY"}
+  actual_b64=md5_base64(osvdb); size=osvdb.stat().st_size; ok=size==osvmeta["size_bytes"] and actual_b64==osvmeta["md5_base64"]
+  artifacts["osv_database"]={"kind":"file","runtime_path":"${DEVSECOPS_RUNTIME_ROOT}/cache/osv/"+osvmeta["cache_layout"],"expected_md5_base64":osvmeta["md5_base64"],"observed_md5_base64":actual_b64,"expected_size_bytes":osvmeta["size_bytes"],"observed_size_bytes":size,"status":"READY" if ok else "NOT_READY"}
+ else: artifacts["osv_database"]={"kind":"file","runtime_path":"${DEVSECOPS_RUNTIME_ROOT}/cache/osv/"+osvmeta["cache_layout"],"status":"NOT_READY"}
  for key,rel,expected_sha in (("gitleaks_config","pipeline/security/gitleaks.toml",manifest["configurations"]["gitleaks"]["sha256"]),("checkov_config","pipeline/security/checkov.yaml",manifest["configurations"]["checkov"]["sha256"]),("zap_inventory","pipeline/security/zap-addon-inventory-v1.txt",manifest["zap_addons"]["inventory"]["sha256"]),("openapi","pipeline/security/openapi-corpus-v1.yaml",manifest["dast"]["openapi"]["sha256"]),("zap_context","pipeline/security/zap-context-v1.json",manifest["dast"]["context"]["sha256"])):
   actual=digest(ROOT/rel); artifacts[key]={"kind":"file","runtime_path":str(ROOT/rel),"expected_sha256":expected_sha,"observed_sha256":actual,"status":"READY" if actual==expected_sha else "NOT_READY"}
  trmeta=json.loads((ROOT/"pipeline/security/trivy-database-v1.json").read_text()); trdir=RUNTIME_ROOT/"cache/trivy/db"; metadata=trdir/"metadata.json"; receipt=trdir/"provenance.json"; dbfile=trdir/"trivy.db"
