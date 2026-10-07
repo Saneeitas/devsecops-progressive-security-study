@@ -8,3 +8,7 @@ coverage/
 .terraform/
 *.tfstate
 *.tfstate.*
+__pycache__/
+*.py[cod]
+pipeline/runtime/tool-runtime-state.json
+data/cache-preflight.json
