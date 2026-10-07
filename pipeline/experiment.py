@@ -10,6 +10,7 @@ import argparse, datetime as dt, hashlib, json, os, platform, re, shutil, subpro
 from pathlib import Path
 from common_lifecycle import DatabaseLifecycle, expected_functional_invariant
 from tool_runtime import runtime_preflight, RUNTIME_ROOT
+from scanner_io import CHECKOV_REPORT_FILENAME, resolve_checkov_report
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS = "eeb2e772ffb60fb214df8b41866be23be89dcf3f"
@@ -120,7 +121,7 @@ def stage(name, fn, logdir, finding_exit_codes=()):
         message=str(e); status="SCANNER_EXECUTION_ERROR" if "SCANNER_EXECUTION_ERROR" in message else ("EXPERIMENT_INFRASTRUCTURE_ERROR" if "EXPERIMENT_INFRASTRUCTURE_ERROR" in message else "ERROR")
         return {"stage":name,"duration_ms":ms(started),"status":status,"exit_code":None,"error":repr(e)}
 
-def frozen_command(control, run_dir):
+def frozen_command(control, run_dir, trivy_runtime_dir=None):
     raw=run_dir/"raw"; raw.mkdir(exist_ok=True)
     if control=="SAST":
         return ["docker","run","--pull=never","--rm","--network","none","--platform","linux/amd64","-v",f"{ROOT}:/src:ro","-v",f"{RUNTIME_ROOT}/semgrep-rules:/rules:ro",SEM_IMAGE,"semgrep","scan","--config","/rules","--json","--output","/dev/stdout","--error","--include","*.ts","--exclude","application/tests/**","--exclude","application/dist/**","--exclude","application/node_modules/**","/src/application/src"]
@@ -129,8 +130,19 @@ def frozen_command(control, run_dir):
     if control=="CONTAINER_SCANNING":
         iid=run_dir/"container-image.iid"
         if not iid.is_file(): raise RuntimeError("required immutable built-image ID is missing")
-        return ["docker","run","--pull=never","--rm","--network","none","-v","/var/run/docker.sock:/var/run/docker.sock","-v",f"{RUNTIME_ROOT}/cache/trivy:/root/.cache/trivy:ro",TRIVY_IMAGE,"image","--scanners","vuln","--format","json","--skip-db-update","--skip-java-db-update","--severity","UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL","--ignore-unfixed=false","--exit-code","1",iid.read_text().strip()]
-    if control=="IAC_SCANNING": return [str(RUNTIME_ROOT/"venv/checkov/bin/checkov"),"--directory","infrastructure/terraform","--framework","terraform","--config-file","pipeline/security/checkov.yaml","--output","json","--output-file-path",str(raw/"checkov.json"),"--skip-download","--soft-fail"]
+        if trivy_runtime_dir is None: raise RuntimeError("Trivy writable runtime cache was not provisioned")
+        database=RUNTIME_ROOT/"cache/trivy/db"
+        cache_dir=trivy_runtime_dir/"cache"; tmp_dir=trivy_runtime_dir/"tmp"
+        return ["docker","run","--pull=never","--rm","--network","none","--read-only","--platform","linux/amd64",
+          "--mount",f"type=bind,src={cache_dir},dst=/root/.cache/trivy",
+          "--mount",f"type=bind,src={database},dst=/frozen-db,readonly",
+          "--mount",f"type=bind,src={tmp_dir},dst=/tmp",
+          "-v","/var/run/docker.sock:/var/run/docker.sock",TRIVY_IMAGE,"--cache-dir","/root/.cache/trivy","image",
+          "--scanners","vuln","--format","json","--skip-db-update","--skip-java-db-update","--severity","UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL","--ignore-unfixed=false","--exit-code","1",iid.read_text().strip()]
+    if control=="IAC_SCANNING":
+        output_dir=raw/"checkov-report"
+        output_dir.mkdir(parents=True,exist_ok=False)
+        return [str(RUNTIME_ROOT/"venv/checkov/bin/checkov"),"--directory","infrastructure/terraform","--framework","terraform","--config-file","pipeline/security/checkov.yaml","--output","json","--output-file-path",str(output_dir),"--skip-download","--soft-fail"]
     raise ValueError("DAST requires lifecycle runner")
 
 def control_environment(control, base_env):
@@ -141,7 +153,7 @@ def control_environment(control, base_env):
 
 def normalize_scanner(control, result, run_dir):
     raw=run_dir/"raw"; name={"SAST":"semgrep","SCA":"osv","SECRET_SCANNING":"gitleaks","CONTAINER_SCANNING":"trivy","IAC_SCANNING":"checkov"}[control]
-    raw_path=raw/f"{name}.json"
+    raw_path=resolve_checkov_report(raw/"checkov-report") if name=="checkov" else raw/f"{name}.json"
     if name in ("semgrep","trivy"):
         raw_path.write_text(result.stdout or "{}")
     if not raw_path.exists():
@@ -166,17 +178,39 @@ def execute_control(control, run_dir, env):
     control_env=control_environment(control,env)
     if control=="IAC_SCANNING":
         for key in ("BC_API_KEY","PRISMA_API_URL","CKV_CHECK","CKV_SKIP_CHECK","CKV_FRAMEWORK","CHECKOV_EXPERIMENTAL_CHECKS_DIR"): control_env.pop(key,None)
-    scanner_started=time.monotonic_ns()
-    result=cmd(frozen_command(control,run_dir),timeout=900,env=control_env)
-    scanner_duration=round((time.monotonic_ns()-scanner_started)/1_000_000,3)
-    if result.returncode not in (0,1):
-        raise RuntimeError(f"SCANNER_EXECUTION_ERROR: native exit {result.returncode}: {result.stderr[-2000:]}")
-    normalized=normalize_scanner(control,result,run_dir)
-    (run_dir/"logs"/f"{control}.scanner.stderr.log").write_text(result.stderr or "")
-    completed=subprocess.CompletedProcess([],result.returncode,result.stdout,result.stderr)
-    completed.normalized=normalized
-    completed.measurement_duration_ms=scanner_duration
-    return completed
+    trivy_runtime_dir=None
+    if control=="CONTAINER_SCANNING":
+        cache_parent=RUNTIME_ROOT/"cache/trivy/runtime"
+        cache_parent.mkdir(parents=True,exist_ok=True)
+        trivy_runtime_dir=cache_parent/run_dir.name
+        if trivy_runtime_dir.exists(): raise RuntimeError("run-derived Trivy runtime cache already exists")
+        (trivy_runtime_dir/"cache").mkdir(parents=True)
+        (trivy_runtime_dir/"tmp").mkdir()
+        (trivy_runtime_dir/"cache/db").symlink_to("/frozen-db")
+    try:
+        scanner_started=time.monotonic_ns()
+        result=cmd(frozen_command(control,run_dir,trivy_runtime_dir),timeout=900,env=control_env)
+        scanner_duration=round((time.monotonic_ns()-scanner_started)/1_000_000,3)
+        (run_dir/"logs"/f"{control}.scanner.stderr.log").write_text(result.stderr or "")
+        if control=="CONTAINER_SCANNING": (run_dir/"raw/trivy.json").write_text(result.stdout or "")
+        if result.returncode not in (0,1):
+            raise RuntimeError(f"SCANNER_EXECUTION_ERROR: native exit {result.returncode}: {result.stderr[-2000:]}")
+        try:
+            normalized=normalize_scanner(control,result,run_dir)
+        except Exception as error:
+            if control=="CONTAINER_SCANNING" and result.returncode==1:
+                raise RuntimeError(f"SCANNER_EXECUTION_ERROR: Trivy did not produce a valid JSON report: {error}") from error
+            raise
+        completed=subprocess.CompletedProcess([],result.returncode,result.stdout,result.stderr)
+        completed.normalized=normalized
+        completed.measurement_duration_ms=scanner_duration
+        return completed
+    finally:
+        if trivy_runtime_dir is not None and trivy_runtime_dir.exists():
+            cleanup=subprocess.run([sys.executable,"-c","import shutil,sys; shutil.rmtree(sys.argv[1])",str(trivy_runtime_dir)],cwd=ROOT,text=True,capture_output=True,timeout=15)
+            (run_dir/"logs"/"trivy-runtime-cache-cleanup.log").write_text(cleanup.stdout+cleanup.stderr)
+            if cleanup.returncode:
+                raise RuntimeError("EXPERIMENT_INFRASTRUCTURE_ERROR: Trivy writable runtime cache cleanup failed")
 
 def execute_dast(run_dir, image_tag, env):
     result=cmd(["python3","pipeline/dast_lifecycle.py","--run-dir",str(run_dir),"--image",image_tag,"--execute"],timeout=1850,env=env)
@@ -211,7 +245,7 @@ def run(args):
         (run_dir/"run.json").write_text(json.dumps({"run_id":args.run_id,"classification":args.classification,"configuration":args.config,"outcome":outcome},indent=2)+"\n")
         return 2
     cfg=configuration(args.config)
-    tool_preflight=runtime_preflight(cfg["controls_enabled"])
+    tool_preflight=runtime_preflight(cfg["controls_enabled"],run_dir)
     (run_dir/"tool-preflight.json").write_text(json.dumps(tool_preflight,indent=2)+"\n")
     cache_state=cache_preflight()
     (run_dir/"cache-preflight.json").write_text(json.dumps(cache_state,indent=2)+"\n")

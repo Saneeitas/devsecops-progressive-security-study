@@ -38,6 +38,17 @@ measured container-build timing uses the warmed local base image. Application
 dependency installation remains within that predefined build boundary. Record
 unavailable cache preconditions as invalid rather than mixing cache states.
 
+Trivy runs with a read-only container root filesystem and no network. Its
+run-derived `/root/.cache/trivy` cache and `/tmp` mounts are writable; the exact
+frozen database is mounted read-only at `/frozen-db` and exposed to Trivy via a
+run-local `cache/db` symlink. The invocation keeps
+`--scanners vuln`, `--skip-db-update`, and `--skip-java-db-update`. Runtime
+preflight verifies the pinned image and mount layout without scanning an image;
+the writable runtime cache is removed after each run. Checkov JSON is written
+to `raw/checkov-report/results_json.json`; the harness resolves that concrete
+file and rejects missing, malformed, or ambiguous reports instead of treating
+them as empty findings.
+
 ## Common database and functional-test lifecycle
 
 Every C0-C6 run creates a disposable PostgreSQL 16-alpine container and a

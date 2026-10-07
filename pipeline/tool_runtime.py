@@ -6,7 +6,9 @@ import hashlib
 import json
 import os
 import subprocess
+import tempfile
 from pathlib import Path
+from scanner_io import CHECKOV_REPORT_FILENAME, load_json_report, resolve_checkov_report, validate_report
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_ROOT = Path(os.environ.get("DEVSECOPS_RUNTIME_ROOT", Path.home() / ".local/share/devsecops-study-runtime"))
@@ -78,7 +80,64 @@ def artifact_ready(record):
         return f.is_file() and digest(f) == record.get("expected_sha256")
     return False
 
-def runtime_preflight(controls):
+def checkov_output_preflight(run_dir: Path) -> dict:
+    """Check writable run-local output plumbing and strict expected report shape."""
+    raw_dir = Path(run_dir) / "raw"
+    try:
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix=".checkov-preflight-", dir=raw_dir) as probe:
+            output_dir = Path(probe) / "checkov-report"
+            output_dir.mkdir()
+            expected = output_dir / CHECKOV_REPORT_FILENAME
+            expected.write_text(json.dumps({"results": {"failed_checks": []}}))
+            report = resolve_checkov_report(output_dir)
+            validate_report("checkov", load_json_report(report))
+        return {"status": "READY", "report_filename": CHECKOV_REPORT_FILENAME,
+                "output_parent": "run_dir/raw", "reason": None}
+    except Exception as error:
+        return {"status": "NOT_READY", "report_filename": CHECKOV_REPORT_FILENAME,
+                "output_parent": "run_dir/raw", "reason": str(error)}
+
+
+def trivy_mount_preflight(image: str, db_dir: Path) -> dict:
+    """Validate the pinned image, bind mounts, and host write area without scanning."""
+    parent = RUNTIME_ROOT / "cache/trivy/runtime"
+    try:
+        if not db_dir.is_dir() or not (db_dir / "metadata.json").is_file() or not (db_dir / "trivy.db").is_file():
+            raise RuntimeError("frozen Trivy DB directory is unavailable")
+        parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix=".mount-preflight-", dir=parent) as writable:
+            cache_dir = Path(writable) / "cache"
+            tmp_dir = Path(writable) / "tmp"
+            cache_dir.mkdir(); tmp_dir.mkdir()
+            (cache_dir / "db").symlink_to("/frozen-db")
+            probe = cache_dir / ".write-probe"
+            probe.write_text("writable")
+            if probe.read_text() != "writable":
+                raise RuntimeError("temporary Trivy cache path is not writable")
+            tmp_probe = tmp_dir / ".write-probe"
+            tmp_probe.write_text("writable")
+            if tmp_probe.read_text() != "writable":
+                raise RuntimeError("temporary Trivy /tmp path is not writable")
+            command = ["docker", "run", "--pull=never", "--rm", "--network", "none",
+                       "--platform", "linux/amd64", "--read-only",
+                       "--mount", f"type=bind,src={cache_dir},dst=/root/.cache/trivy",
+                       "--mount", f"type=bind,src={db_dir},dst=/frozen-db,readonly",
+                       "--mount", f"type=bind,src={tmp_dir},dst=/tmp",
+                       image, "--cache-dir", "/root/.cache/trivy", "--version"]
+            result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+            if result.returncode != 0 or "Version: 0.74.0" not in result.stdout:
+                raise RuntimeError((result.stderr or result.stdout or "Trivy mount check failed")[-1000:])
+        return {"status": "READY", "writable_cache": "temporary run-owned bind mount",
+                "writable_tmp": "temporary run-owned /tmp bind mount",
+                "frozen_db_mount": "read-only", "network": "none", "reason": None}
+    except Exception as error:
+        return {"status": "NOT_READY", "writable_cache": "temporary run-owned bind mount",
+                "writable_tmp": "temporary run-owned /tmp bind mount",
+                "frozen_db_mount": "read-only", "network": "none", "reason": str(error)}
+
+
+def runtime_preflight(controls, run_dir=None):
     """Check readiness state and current local inputs; never downloads or updates."""
     required = sorted({CONTROL_TOOLS[x] for x in controls if x in CONTROL_TOOLS})
     checked_at = dt.datetime.now(dt.timezone.utc).isoformat()
@@ -121,6 +180,15 @@ def runtime_preflight(controls):
             valid = record.get("status") == "READY" and artifact_ready(record)
             artifact_checks.append({"artifact": artifact, "status": "READY" if valid else "NOT_READY", "path": resolve_runtime_path(record.get("runtime_path"))})
             ok = ok and valid
+        runtime_checks = []
+        if name == "trivy":
+            check = trivy_mount_preflight(path, RUNTIME_ROOT / "cache/trivy/db")
+            runtime_checks.append({"check": "read_only_root_and_cache_mounts", **check})
+            ok = ok and check["status"] == "READY"
+        if name == "checkov" and run_dir is not None:
+            check = checkov_output_preflight(Path(run_dir))
+            runtime_checks.append({"check": "run_local_report_path_and_normalizer", **check})
+            ok = ok and check["status"] == "READY"
         if name == "zap":
             ok = ok and item.get("addon_inventory_match") is True
         if name == "osv":
@@ -138,6 +206,6 @@ def runtime_preflight(controls):
                   and osv_policy.get("cache_layout") == "osv-scalibr/npm/all.zip"
                   and osv_policy.get("network_disabled") is True
                   and osv_policy.get("archive_ready") is True)
-        checks.append({"tool": name, "status": "READY" if ok else "NOT_READY", "version": item.get("observed_version"), "runtime_path": path, "artifacts": artifact_checks, "reason": None if ok else item.get("reason", "runtime artifact missing, stale, or changed")})
+        checks.append({"tool": name, "status": "READY" if ok else "NOT_READY", "version": item.get("observed_version"), "runtime_path": path, "artifacts": artifact_checks, "runtime_checks": runtime_checks, "reason": None if ok else item.get("reason", "runtime artifact missing, stale, or changed")})
     frozen_ok = state.get("frozen_inputs_status") == "READY"
     return {"status": "PASS" if frozen_ok and all(x["status"] == "READY" for x in checks) else "FAIL", "frozen_inputs_status": "READY" if frozen_ok else "NOT_READY", "required": required, "checked_at": checked_at, "tools": checks}
