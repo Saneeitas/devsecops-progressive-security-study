@@ -15,7 +15,7 @@ from scanner_io import CHECKOV_REPORT_FILENAME, resolve_checkov_report
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS = "eeb2e772ffb60fb214df8b41866be23be89dcf3f"
 SPEC = "d808bfc24691ace15c0bbdc2a914a8ce01e6059b"
-RUN_RE = re.compile(r"^(?:(P)-)?(C[0-6])-R([0-9]{3})$")
+RUN_RE = re.compile(r"^(?:(P)-)?(C[0-6])-R([0-9]{3})(?:-A(0[23]))?$")
 CONTROLS = {
  "SAST": ("Semgrep", "1.178.0"), "SCA": ("OSV-Scanner", "2.6.0"),
  "SECRET_SCANNING": ("Gitleaks", "8.30.1"), "CONTAINER_SCANNING": ("Trivy", "0.74.0"),
@@ -50,11 +50,62 @@ def configuration(config):
     for item in load("research/configurations.json")["configurations"]:
         if item["id"] == config: return item
     raise ValueError("unknown configuration")
+REPLACEMENT_REASONS={
+ "infrastructure_startup_failure", "unexpected_functional_test_failure",
+ "required_scanner_execution_failure", "required_scanner_output_failure",
+ "normalization_failure", "resource_isolation_failure", "lifecycle_or_cleanup_failure",
+}
+
+def scheduled_slot(slot_id):
+    import csv
+    with (ROOT/"research/pilot-schedule-v1.csv").open(newline="") as source:
+        for row in csv.DictReader(source):
+            if row["run_id"] == slot_id:
+                return row
+    raise ValueError(f"replacement original slot is not in the frozen schedule: {slot_id}")
+
 def validate_id(config, run_id, classification):
     m=RUN_RE.fullmatch(run_id or "")
     if not m or m.group(2) != config: raise ValueError("run ID must match --config exactly")
     if classification == "pilot" and not m.group(1): raise ValueError("pilot IDs require P-Cx-Rnnn")
     if classification in ("final","smoke") and m.group(1): raise ValueError("only pilot IDs use P- prefix")
+    if m.group(4) and classification != "pilot": raise ValueError("replacement suffixes are permitted only for pilot IDs")
+    return m
+
+def replacement_provenance(args):
+    match=validate_id(args.config,args.run_id,args.classification)
+    replacement_number=match.group(4)
+    supplied=(args.original_slot_id,args.scheduled_order,args.attempt_number,args.predecessor_attempt_id,args.replacement_reason)
+    if not replacement_number:
+        if any(value is not None for value in supplied):
+            raise ValueError("replacement provenance arguments require an -A02 or -A03 run ID")
+        return None
+    if any(value is None for value in supplied):
+        raise ValueError("replacement attempts require complete PA-002 provenance")
+    original=f"P-{args.config}-R{match.group(3)}"
+    attempt_number=int(replacement_number)
+    if args.original_slot_id != original or args.attempt_number != attempt_number:
+        raise ValueError("replacement provenance must match the replacement run ID")
+    if args.replacement_reason not in REPLACEMENT_REASONS:
+        raise ValueError("replacement reason is not eligible under PA-002")
+    slot=scheduled_slot(original)
+    if args.scheduled_order != int(slot["sequence_number"]):
+        raise ValueError("replacement scheduled order must match the original frozen slot")
+    expected_predecessor=original if attempt_number == 2 else f"{original}-A02"
+    if args.predecessor_attempt_id != expected_predecessor:
+        raise ValueError("replacement predecessor does not match PA-002 attempt ordering")
+    predecessor=ROOT/"data/raw/pilot"/expected_predecessor/"run.json"
+    if not predecessor.is_file():
+        raise ValueError("replacement predecessor evidence is missing")
+    previous=load(predecessor.relative_to(ROOT))
+    if previous.get("run_id") != expected_predecessor or previous.get("configuration") != args.config:
+        raise ValueError("replacement predecessor evidence does not match the original slot")
+    if previous.get("validity") != "INVALID_RETRYABLE":
+        raise ValueError("PA-002 permits replacement only after INVALID_RETRYABLE")
+    return {"original_scheduled_slot_id":original,"configuration":args.config,
+      "scheduled_order":args.scheduled_order,"attempt_number":attempt_number,
+      "predecessor_attempt_id":expected_predecessor,"replacement_reason":args.replacement_reason,
+      "evidence_directory":f"data/raw/pilot/{args.run_id}","protocol_amendment":"PA-002"}
 
 def artifact_preflight():
     m=load("research/experiment-artifacts-v1.json"); checks=[]
@@ -233,7 +284,7 @@ def execute_dast(run_dir, image_tag, env):
     return completed
 
 def run(args):
-    validate_id(args.config,args.run_id,args.classification)
+    provenance=replacement_provenance(args)
     if args.classification not in ("smoke","pilot","final"): raise ValueError("invalid classification")
     run_dir=ROOT/"data/raw"/args.classification/args.run_id
     if run_dir.exists(): raise RuntimeError("duplicate run ID: existing directory is never overwritten")
@@ -253,6 +304,7 @@ def run(args):
         failed_preflight="tool_preflight" if tool_preflight["status"]!="PASS" else "cache_preflight"
         outcome={"validity":"INVALID_NONRETRYABLE","success":False,"exit_status":2,"security_gate":"NOT_APPLICABLE","failure_stage":failed_preflight,"notes":"EXPERIMENT_INFRASTRUCTURE_ERROR: required pre-provisioned tools/artifacts are not READY; measured stages were not started."}
         record={"schema_version":"1.0","run_id":args.run_id,"classification":args.classification,"configuration":args.config,"corpus_commit":CORPUS,"pipeline_commit":git(),"timestamp":started_at,"environment":environment(),"cache":{"policy":"controlled_warm","condition":"unknown","primed":False,"dependency_cache_hit":None,"docker_cache_condition":"unknown","notes":"tool preflight failed before measured execution"},"timings":{"clock":"monotonic_wall_clock","pipeline_started_at":started_at,"pipeline_ended_at":iso(),"total_ms":0,"setup_ms":0,"build_ms":None,"functional_test_ms":None,"deployment_startup_ms":None,"dast_ms":None,"security_controls":[]},"resources":{"measurement_available":False,"cpu_utilization_percent":None,"peak_memory_bytes":None,"sampling_interval_ms":None,"method":None},"tools":[],"security":{"finding_count":0,"normalized_finding_count":0,"finding_artifact":"normalized-findings.json","vulnerability_detection":[]},"execution":[],"outcome":outcome,"validity":outcome["validity"]}
+        if provenance: record["replacement_provenance"]=provenance
         (run_dir/"run.json").write_text(json.dumps(record,indent=2)+"\n"); (run_dir/"environment.json").write_text(json.dumps(record["environment"],indent=2)+"\n"); (run_dir/"timings.json").write_text(json.dumps(record["timings"],indent=2)+"\n"); (run_dir/"gate.json").write_text(json.dumps({"status":"NOT_APPLICABLE","reason":"tools were not ready; no controls executed"},indent=2)+"\n"); (run_dir/"normalized-findings.json").write_text("[]\n")
         return 2
     started=time.monotonic_ns(); started_at=iso(); stages=[]; lifecycle=None; image_tag=f"{IMAGE_TAG_PREFIX}:{args.run_id.lower()}"; image_built=False
@@ -331,6 +383,7 @@ def run(args):
       "execution":stages,
       "outcome":outcome,
       "validity":outcome["validity"]}
+    if provenance: record["replacement_provenance"]=provenance
     (run_dir/"run.json").write_text(json.dumps(record,indent=2)+"\n")
     (run_dir/"environment.json").write_text(json.dumps(record["environment"],indent=2)+"\n")
     (run_dir/"timings.json").write_text(json.dumps(record["timings"],indent=2)+"\n")
@@ -364,6 +417,7 @@ def warm():
 def main():
     ap=argparse.ArgumentParser(); sub=ap.add_subparsers(dest="command",required=True)
     r=sub.add_parser("run"); r.add_argument("--config",required=True); r.add_argument("--run-id",required=True); r.add_argument("--class",dest="classification",required=True); r.add_argument("--execute",action="store_true")
+    r.add_argument("--original-slot-id"); r.add_argument("--scheduled-order",type=int); r.add_argument("--attempt-number",type=int); r.add_argument("--predecessor-attempt-id"); r.add_argument("--replacement-reason",choices=sorted(REPLACEMENT_REASONS))
     sub.add_parser("preflight"); sub.add_parser("warm")
     a=ap.parse_args()
     if a.command=="preflight": print(json.dumps(artifact_preflight(),indent=2)); return 0

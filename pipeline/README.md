@@ -104,6 +104,20 @@ outputs, logs, preflight, environment, timings, gate, and normalized findings
 under data/raw/<class>/<run-id>. Invalid runs are retained and replacement IDs
 are documented instead of overwriting history.
 
+PA-002 defines a prospective replacement procedure for `INVALID_RETRYABLE`
+pilot attempts only. A first replacement uses `P-Cx-Rnnn-A02`; a second uses
+`P-Cx-Rnnn-A03`. The original slot remains in the frozen schedule. A replacement
+must be run before the next original scheduled slot and must provide its original
+slot, scheduled order, attempt number, predecessor, and PA-002 eligible reason:
+
+    ./pipeline/run-experiment.sh --config C1 --run-id P-C1-R002-A02 --class pilot --execute \
+      --original-slot-id P-C1-R002 --scheduled-order 8 --attempt-number 2 \
+      --predecessor-attempt-id P-C1-R002 \
+      --replacement-reason unexpected_functional_test_failure
+
+This is an operator interface description, not authorization to execute a
+replacement. See `research/protocol-amendment-002-invalid-run-replacement.md`.
+
 C0 runs common dependency, database, build, and test stages with no scanner.
 C4-C6 build the application image required by Trivy, in the separately timed
 container-build stage. C1-C6 enable cumulative controls from the manifest.
