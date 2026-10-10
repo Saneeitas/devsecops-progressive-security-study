@@ -7,7 +7,7 @@
   "required": ["schema_version", "run_id", "classification", "configuration", "corpus_commit", "pipeline_commit", "timestamp", "environment", "cache", "timings", "resources", "tools", "security", "outcome"],
   "properties": {
     "schema_version": { "const": "1.0" },
-    "run_id": { "type": "string", "pattern": "^(?:P-C[0-6]-R[0-9]{3,}(?:-A0[23])?|C[0-6]-R[0-9]{3,})$" },
+    "run_id": { "type": "string", "pattern": "^(?:P-C[0-6]-R[0-9]{3,}(?:-A0[23])?|C[0-6]-R[0-9]{3,}(?:-A0[23])?)$" },
     "classification": { "enum": ["smoke", "pilot", "final"] },
     "configuration": { "enum": ["C0", "C1", "C2", "C3", "C4", "C5", "C6"] },
     "corpus_commit": { "const": "eeb2e772ffb60fb214df8b41866be23be89dcf3f" },
@@ -20,10 +20,34 @@
     "tools": { "type": "array", "items": { "$ref": "#/$defs/tool" } },
     "security": { "$ref": "#/$defs/security" },
     "outcome": { "$ref": "#/$defs/outcome" },
-    "replacement_provenance": { "$ref": "#/$defs/replacement_provenance" },
+    "replacement_provenance": { "oneOf": [{ "$ref": "#/$defs/pilot_replacement_provenance" }, { "$ref": "#/$defs/final_replacement_provenance" }] },
     "validity": { "enum": ["VALID", "INVALID_RETRYABLE", "INVALID_NONRETRYABLE"] },
     "execution": { "type": "array", "items": { "type": "object" } }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "classification": { "const": "pilot" } }, "required": ["classification"] },
+      "then": {
+        "properties": {
+          "run_id": { "pattern": "^P-C[0-6]-R[0-9]{3,}(?:-A0[23])?$" },
+          "replacement_provenance": { "$ref": "#/$defs/pilot_replacement_provenance" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "classification": { "const": "final" } }, "required": ["classification"] },
+      "then": {
+        "properties": {
+          "run_id": { "pattern": "^C[0-6]-R[0-9]{3,}(?:-A0[23])?$" },
+          "replacement_provenance": { "$ref": "#/$defs/final_replacement_provenance" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "classification": { "const": "smoke" } }, "required": ["classification"] },
+      "then": { "not": { "required": ["replacement_provenance"] } }
+    }
+  ],
   "$defs": {
     "duration": { "type": ["number", "null"], "minimum": 0 },
     "environment": {
@@ -59,7 +83,7 @@
       "type": "object", "additionalProperties": false, "required": ["success", "exit_status", "security_gate", "failure_stage"],
       "properties": { "success": { "type": "boolean" }, "exit_status": { "type": "integer" }, "security_gate": { "enum": ["PASS", "FAIL", "NOT_APPLICABLE", "ERROR"] }, "failure_stage": { "type": ["string", "null"] }, "notes": { "type": ["string", "null"] }, "validity": { "enum": ["VALID", "INVALID_RETRYABLE", "INVALID_NONRETRYABLE"] } }
     },
-    "replacement_provenance": {
+    "pilot_replacement_provenance": {
       "type": "object",
       "additionalProperties": false,
       "required": ["original_scheduled_slot_id", "configuration", "scheduled_order", "attempt_number", "predecessor_attempt_id", "replacement_reason", "evidence_directory", "protocol_amendment"],
@@ -72,6 +96,21 @@
         "replacement_reason": { "enum": ["infrastructure_startup_failure", "unexpected_functional_test_failure", "required_scanner_execution_failure", "required_scanner_output_failure", "normalization_failure", "resource_isolation_failure", "lifecycle_or_cleanup_failure"] },
         "evidence_directory": { "type": "string", "pattern": "^data/raw/pilot/P-C[0-6]-R[0-9]{3}-A0[23]$" },
         "protocol_amendment": { "const": "PA-002" }
+      }
+    },
+    "final_replacement_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["original_scheduled_slot_id", "configuration", "scheduled_order", "attempt_number", "predecessor_attempt_id", "replacement_reason", "evidence_directory", "protocol_amendment"],
+      "properties": {
+        "original_scheduled_slot_id": { "type": "string", "pattern": "^C[0-6]-R[0-9]{3}$" },
+        "configuration": { "enum": ["C0", "C1", "C2", "C3", "C4", "C5", "C6"] },
+        "scheduled_order": { "type": "integer", "minimum": 1, "maximum": 140 },
+        "attempt_number": { "enum": [2, 3] },
+        "predecessor_attempt_id": { "type": "string", "pattern": "^C[0-6]-R[0-9]{3}(?:-A02)?$" },
+        "replacement_reason": { "enum": ["infrastructure_startup_failure", "unexpected_functional_test_failure", "required_scanner_execution_failure", "required_scanner_output_failure", "normalization_failure", "resource_isolation_failure", "lifecycle_or_cleanup_failure"] },
+        "evidence_directory": { "type": "string", "pattern": "^data/raw/final/C[0-6]-R[0-9]{3}-A0[23]$" },
+        "protocol_amendment": { "const": "PA-003" }
       }
     }
   }

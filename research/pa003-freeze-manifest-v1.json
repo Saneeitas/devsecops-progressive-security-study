@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0",
+  "protocol": "PA-003",
+  "version": "1",
+  "approval_date": "October 10, 2026",
+  "principal_investigator": "Muhammad Sani Ibrahim",
+  "approval_source": "explicit PI declaration in ChatGPT research conversation",
+  "schedule": {
+    "path": "research/final-schedule-pa003.csv",
+    "sha256": "92736c0e80b4104fbccec0fa3a4ce420266fa36215ba05094bdac9afea61f42d",
+    "generator_external_path": "/Users/macbookpro/Documents/External App/devsecops-research-evidence/final-study-pa003-draft-20261010/final-study-schedule-generation.py",
+    "seed": 20261010,
+    "generator_sha256": "e62e75851247e87d02cad8ecc15ba6ecefe142a1e12dd08aefe251b5a617689f"
+  },
+  "historical_references": {
+    "pipeline-v1": "29ca55106f4f87bcf5bc1c096c19ff2cae9e7b3c",
+    "experiment-spec-v1": "d808bfc24691ace15c0bbdc2a914a8ce01e6059b",
+    "experiment-spec-pa001": "d12a5035ab79239e0eff65840647e39433ccbef4",
+    "experiment-protocol-pa002": "3847d66008a83325d7f0de7a1e6e449ed74bc50a"
+  },
+  "no_interim_adaptation": true,
+  "evidence_retention": "Raw pilot and smoke evidence remain unstaged and immutable; final evidence is append-only.",
+  "files": [
+    {
+      "path": "research/pa003-pi-approval-record-v1.md",
+      "sha256": "e7fedc3539882ab696acb4fa468362eb2e0ac4560fbb9a8a094a30c39f807b4d"
+    },
+    {
+      "path": "research/protocol-amendment-003-final-study.md",
+      "sha256": "136cb010c6691090a4592c4256e9f20a2907a4375754a54bd18f7acb66d95798"
+    },
+    {
+      "path": "research/final-study-statistical-analysis-plan-pa003.md",
+      "sha256": "14182a5669b234100c70ff563fec844df2555b156d61983696b52a477ce0d704"
+    },
+    {
+      "path": "research/final-study-invalid-attempt-policy-pa003.md",
+      "sha256": "c8c108624d5afd71f1e37d78fbca1b3da3bb24deecd9c6c2e38a1bc8b54bf3fc"
+    },
+    {
+      "path": "research/final-study-environment-controls-pa003.md",
+      "sha256": "9f5510763ef776ca0463f6d77e15693eb8d08190bab1630cbedd2e7bb1c9ff96"
+    },
+    {
+      "path": "research/security-adjudication-protocol-pa003.md",
+      "sha256": "febd24a88952849b1918ffbe3e3abc135d31eac5a8e1af8dcbf371b9255c0933"
+    },
+    {
+      "path": "research/security-coverage-definition-pa003.md",
+      "sha256": "6857d3f7ad575099820a239d6d508e888c823417ca2d730dfd8a22faa4632f6a"
+    },
+    {
+      "path": "research/pa003-pi-governance-ethics-v1.md",
+      "sha256": "76a6602ca128dac3e1cb0452b6ebdbaa6591a59e6a560ee046e449b6efe5f7cc"
+    },
+    {
+      "path": "research/final-schedule-pa003.csv",
+      "sha256": "92736c0e80b4104fbccec0fa3a4ce420266fa36215ba05094bdac9afea61f42d"
+    },
+    {
+      "path": "pipeline/experiment.py",
+      "sha256": "4c14f5427cd8ba1cece0513a79a0d0769145357647a2afc90eaddb51d36447f1"
+    },
+    {
+      "path": "pipeline/validate-experiment.py",
+      "sha256": "de840910cf77d8bdf0d7fad35527aa551a3c90ce583b7aa852f0aa677e51f1b9"
+    },
+    {
+      "path": "data/schema/run.schema.json",
+      "sha256": "7335aafce12cd7ecdb81b72854b1ebf28c3e77621741118ea10373e7b55d3d7b"
+    },
+    {
+      "path": "pipeline/test_replacement_provenance.py",
+      "sha256": "3200f17de455b75461071222c19b657d89b6fcb9996645d836afa6831f3b4eaa"
+    },
+    {
+      "path": "pipeline/test_final_replacement_provenance.py",
+      "sha256": "0742df92af75490822fc92ed8a1445dd59a5747260755623327ac8502300d6ea"
+    }
+  ],
+  "frozen_artifact_manifest": {
+    "path": "research/experiment-artifacts-v1.json",
+    "sha256": "bf76e096ac67583c13e0c541bda23e7154fd52d31b2f1e85a311788e75b81304"
+  },
+  "pilot_archives": {
+    "block_1": "8098c25d74b95ac72311fdbaa33fc8bf131b06e422e77703edd5d0c9572e81aa",
+    "block_2": "c6cd53e235184ae1b00a65ae2bc13e9b69e64acc75f0e1a7bac0b5eba41d28b4",
+    "block_3": "f8934ba125a882d42bca2d1d79c3ccb0534b506ca9327ee8719177e24922f20f",
+    "block_4": "0f10321d5140066e62a3ffcc435e3c497739d5c7d38018ea99614136cf73e035",
+    "block_5": "9497956e68dff936e3ab66849a4fbe648b33eb8d9f016cb6448a0e36ccd70383"
+  }
+}

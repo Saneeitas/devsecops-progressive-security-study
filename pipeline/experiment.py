@@ -16,6 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 CORPUS = "eeb2e772ffb60fb214df8b41866be23be89dcf3f"
 SPEC = "d808bfc24691ace15c0bbdc2a914a8ce01e6059b"
 RUN_RE = re.compile(r"^(?:(P)-)?(C[0-6])-R([0-9]{3})(?:-A(0[23]))?$")
+PILOT_SCHEDULE_PATH = ROOT / "research/pilot-schedule-v1.csv"
+# This artifact is intentionally absent until PA-003 receives approval and is frozen.
+# Final execution must fail closed rather than accepting an unfrozen external schedule.
+FINAL_SCHEDULE_PATH = ROOT / "research/final-schedule-pa003.csv"
 CONTROLS = {
  "SAST": ("Semgrep", "1.178.0"), "SCA": ("OSV-Scanner", "2.6.0"),
  "SECRET_SCANNING": ("Gitleaks", "8.30.1"), "CONTAINER_SCANNING": ("Trivy", "0.74.0"),
@@ -56,20 +60,39 @@ REPLACEMENT_REASONS={
  "normalization_failure", "resource_isolation_failure", "lifecycle_or_cleanup_failure",
 }
 
-def scheduled_slot(slot_id):
+def schedule_order(row):
+    if row.get("sequence_number"):
+        return int(row["sequence_number"])
+    return (int(row["block"]) - 1) * 7 + int(row["ordinal_position"])
+
+def scheduled_slot(slot_id, classification, schedule_path=None):
     import csv
-    with (ROOT/"research/pilot-schedule-v1.csv").open(newline="") as source:
+    path = schedule_path or (PILOT_SCHEDULE_PATH if classification == "pilot" else FINAL_SCHEDULE_PATH)
+    if not path.is_file():
+        raise ValueError(f"approved {classification} schedule is unavailable: {path}")
+    with path.open(newline="") as source:
         for row in csv.DictReader(source):
             if row["run_id"] == slot_id:
                 return row
-    raise ValueError(f"replacement original slot is not in the frozen schedule: {slot_id}")
+    raise ValueError(f"replacement original slot is not in the approved {classification} schedule: {slot_id}")
+
+def final_slot_has_valid_attempt(original_slot_id):
+    root = ROOT / "data/raw/final"
+    for record_path in root.glob("*/run.json"):
+        record = load(record_path.relative_to(ROOT))
+        provenance = record.get("replacement_provenance") or {}
+        slot = provenance.get("original_scheduled_slot_id", record.get("run_id"))
+        if slot == original_slot_id and record.get("validity") == "VALID":
+            return True
+    return False
 
 def validate_id(config, run_id, classification):
     m=RUN_RE.fullmatch(run_id or "")
     if not m or m.group(2) != config: raise ValueError("run ID must match --config exactly")
     if classification == "pilot" and not m.group(1): raise ValueError("pilot IDs require P-Cx-Rnnn")
     if classification in ("final","smoke") and m.group(1): raise ValueError("only pilot IDs use P- prefix")
-    if m.group(4) and classification != "pilot": raise ValueError("replacement suffixes are permitted only for pilot IDs")
+    if m.group(4) and classification not in ("pilot", "final"):
+        raise ValueError("replacement suffixes are permitted only for pilot or final IDs")
     return m
 
 def replacement_provenance(args):
@@ -79,33 +102,38 @@ def replacement_provenance(args):
     if not replacement_number:
         if any(value is not None for value in supplied):
             raise ValueError("replacement provenance arguments require an -A02 or -A03 run ID")
+        if args.classification == "final":
+            scheduled_slot(args.run_id, "final")
         return None
     if any(value is None for value in supplied):
-        raise ValueError("replacement attempts require complete PA-002 provenance")
-    original=f"P-{args.config}-R{match.group(3)}"
+        raise ValueError("replacement attempts require complete replacement provenance")
+    original=("P-" if args.classification == "pilot" else "") + f"{args.config}-R{match.group(3)}"
     attempt_number=int(replacement_number)
     if args.original_slot_id != original or args.attempt_number != attempt_number:
         raise ValueError("replacement provenance must match the replacement run ID")
     if args.replacement_reason not in REPLACEMENT_REASONS:
-        raise ValueError("replacement reason is not eligible under PA-002")
-    slot=scheduled_slot(original)
-    if args.scheduled_order != int(slot["sequence_number"]):
-        raise ValueError("replacement scheduled order must match the original frozen slot")
+        raise ValueError("replacement reason is not eligible under the replacement policy")
+    slot=scheduled_slot(original, args.classification)
+    if args.scheduled_order != schedule_order(slot):
+        raise ValueError("replacement scheduled order must match the original approved slot")
     expected_predecessor=original if attempt_number == 2 else f"{original}-A02"
     if args.predecessor_attempt_id != expected_predecessor:
-        raise ValueError("replacement predecessor does not match PA-002 attempt ordering")
-    predecessor=ROOT/"data/raw/pilot"/expected_predecessor/"run.json"
+        raise ValueError("replacement predecessor does not match the replacement attempt ordering")
+    predecessor=ROOT/"data/raw"/args.classification/expected_predecessor/"run.json"
     if not predecessor.is_file():
         raise ValueError("replacement predecessor evidence is missing")
     previous=load(predecessor.relative_to(ROOT))
     if previous.get("run_id") != expected_predecessor or previous.get("configuration") != args.config:
         raise ValueError("replacement predecessor evidence does not match the original slot")
     if previous.get("validity") != "INVALID_RETRYABLE":
-        raise ValueError("PA-002 permits replacement only after INVALID_RETRYABLE")
+        raise ValueError("replacement is permitted only after INVALID_RETRYABLE")
+    if args.classification == "final" and final_slot_has_valid_attempt(original):
+        raise ValueError("final scheduled slot already has a VALID attempt")
     return {"original_scheduled_slot_id":original,"configuration":args.config,
       "scheduled_order":args.scheduled_order,"attempt_number":attempt_number,
       "predecessor_attempt_id":expected_predecessor,"replacement_reason":args.replacement_reason,
-      "evidence_directory":f"data/raw/pilot/{args.run_id}","protocol_amendment":"PA-002"}
+      "evidence_directory":f"data/raw/{args.classification}/{args.run_id}",
+      "protocol_amendment":"PA-002" if args.classification == "pilot" else "PA-003"}
 
 def artifact_preflight():
     m=load("research/experiment-artifacts-v1.json"); checks=[]
