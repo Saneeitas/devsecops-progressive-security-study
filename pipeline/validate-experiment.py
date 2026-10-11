@@ -64,6 +64,12 @@ def final_provenance(match, record, final_rows, directory):
     assert json.loads(previous.read_text())["validity"]=="INVALID_RETRYABLE", "final replacement predecessor must be INVALID_RETRYABLE"
     return original
 
+def register_run_identity(seen, classification, run_id):
+    """Register a run within its evidence classification namespace."""
+    key=(classification,run_id)
+    assert key not in seen, "duplicate run ID within classification"
+    seen.add(key)
+
 def assert_final_slot_limits(final_slots):
     for slot,attempts in final_slots.items():
       assert len(attempts)<=3, f"final slot exceeds three total attempts: {slot}"
@@ -75,7 +81,7 @@ def runs():
     for c in ("pilot","final","smoke"):
       for d in (ROOT/"data/raw"/c).glob("*"):
        if not d.is_dir(): continue
-       assert d.name not in ids; ids.add(d.name)
+       register_run_identity(ids,c,d.name)
        for f in ("run.json","environment.json","timings.json","gate.json","normalized-findings.json"): assert (d/f).exists(),f
        r=json.loads((d/"run.json").read_text())
        required={"schema_version","run_id","classification","configuration","environment","timings","resources","tools","security","outcome","validity"}
