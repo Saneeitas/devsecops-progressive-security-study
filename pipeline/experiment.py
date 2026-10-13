@@ -59,6 +59,39 @@ REPLACEMENT_REASONS={
  "required_scanner_execution_failure", "required_scanner_output_failure",
  "normalization_failure", "resource_isolation_failure", "lifecycle_or_cleanup_failure",
 }
+PA009_ORIGINAL_SLOT="C5-R007"
+PA009_REPLACEMENT_ID="C5-R007-A02"
+PA009_PREDECESSOR_SHA256={
+ "run.json":"3c8a030cfa0121ef8932799f182d92c92a9ed0b8b75dd083a00cf325ad13147d",
+ "timings.json":"9611aa29714dd6d449e7ee61374b9a292c79fb4d4b8ae21b91249629e2ec9836",
+ "gate.json":"fe2b39f93f5272f8b5c76b5ef315a67bbbeebabbbca8f757149744493a64059d",
+ "cache-preflight.json":"fccd989165a66fa47f32798e2d9b52bfd5fda9bb577df45b4c1d3ed0cb44211c",
+ "tool-preflight.json":"e1cb34f4d323efbc90f686909389e0b8bdbf7f300768c23a1ce3ef07ecf2b880",
+ "normalized-findings.json":"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+}
+def pa009_exception(args,original,attempt_number,expected_predecessor,previous):
+    if not (args.classification=="final" and original==PA009_ORIGINAL_SLOT and args.run_id==PA009_REPLACEMENT_ID and attempt_number==2 and expected_predecessor==PA009_ORIGINAL_SLOT):
+        return False
+    if args.config!="C5" or args.replacement_reason!="infrastructure_startup_failure":
+        return False
+    if previous.get("validity")!="INVALID_NONRETRYABLE" or previous.get("outcome",{}).get("failure_stage")!="cache_preflight":
+        return False
+    timings=previous.get("timings",{})
+    if timings.get("total_ms")!=0 or previous.get("execution")!=[] or timings.get("security_controls")!=[]:
+        return False
+    if previous.get("tools")!=[] or previous.get("security",{}).get("finding_count")!=0:
+        return False
+    if previous.get("security",{}).get("normalized_finding_count")!=0 or "replacement_provenance" in previous:
+        return False
+    evidence=ROOT/"data/raw"/args.classification/expected_predecessor
+    for name,expected in PA009_PREDECESSOR_SHA256.items():
+        target=evidence/name
+        if not target.is_file() or hashlib.sha256(target.read_bytes()).hexdigest()!=expected:
+            return False
+    raw=evidence/"raw"
+    if not raw.is_dir() or any(raw.iterdir()):
+        return False
+    return True
 
 def schedule_order(row):
     if row.get("sequence_number"):
@@ -125,7 +158,8 @@ def replacement_provenance(args):
     previous=load(predecessor.relative_to(ROOT))
     if previous.get("run_id") != expected_predecessor or previous.get("configuration") != args.config:
         raise ValueError("replacement predecessor evidence does not match the original slot")
-    if previous.get("validity") != "INVALID_RETRYABLE":
+    pa009=pa009_exception(args,original,attempt_number,expected_predecessor,previous)
+    if previous.get("validity") != "INVALID_RETRYABLE" and not pa009:
         raise ValueError("replacement is permitted only after INVALID_RETRYABLE")
     if args.classification == "final" and final_slot_has_valid_attempt(original):
         raise ValueError("final scheduled slot already has a VALID attempt")
@@ -133,7 +167,7 @@ def replacement_provenance(args):
       "scheduled_order":args.scheduled_order,"attempt_number":attempt_number,
       "predecessor_attempt_id":expected_predecessor,"replacement_reason":args.replacement_reason,
       "evidence_directory":f"data/raw/{args.classification}/{args.run_id}",
-      "protocol_amendment":"PA-002" if args.classification == "pilot" else "PA-003"}
+      "protocol_amendment":"PA-009" if pa009 else ("PA-002" if args.classification == "pilot" else "PA-003")}
 
 def artifact_preflight():
     m=load("research/experiment-artifacts-v1.json"); checks=[]

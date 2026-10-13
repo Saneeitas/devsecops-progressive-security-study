@@ -1,13 +1,53 @@
 #!/usr/bin/env python3
 """Mechanical validation for schedules and recorded run directories."""
 from __future__ import annotations
-import argparse,csv,json,re,sys
+import argparse,csv,hashlib,json,re,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 PILOT_RX=re.compile(r"^P-(C[0-6])-R(00[1-5])(?:-A(0[23]))?$")
 FINAL_RX=re.compile(r"^(C[0-6])-R([0-9]{3})(?:-A(0[23]))?$")
 FINAL_SCHEDULE_PATH=ROOT/"research/final-schedule-pa003.csv"
 HISTORICAL_VALID_FAILURE_STAGE={"C0-R003"}
+PA009_ORIGINAL_SLOT="C5-R007"
+PA009_REPLACEMENT_ID="C5-R007-A02"
+PA009_PREDECESSOR_SHA256={
+ "run.json":"3c8a030cfa0121ef8932799f182d92c92a9ed0b8b75dd083a00cf325ad13147d",
+ "timings.json":"9611aa29714dd6d449e7ee61374b9a292c79fb4d4b8ae21b91249629e2ec9836",
+ "gate.json":"fe2b39f93f5272f8b5c76b5ef315a67bbbeebabbbca8f757149744493a64059d",
+ "cache-preflight.json":"fccd989165a66fa47f32798e2d9b52bfd5fda9bb577df45b4c1d3ed0cb44211c",
+ "tool-preflight.json":"e1cb34f4d323efbc90f686909389e0b8bdbf7f300768c23a1ce3ef07ecf2b880",
+ "normalized-findings.json":"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+}
+def pa009_final_exception(match,provenance,directory,final_rows):
+    if directory.name!=PA009_REPLACEMENT_ID or match.group(1)!="C5" or provenance.get("original_scheduled_slot_id")!=PA009_ORIGINAL_SLOT:
+        return False
+    if provenance.get("attempt_number")!=2 or provenance.get("predecessor_attempt_id")!=PA009_ORIGINAL_SLOT:
+        return False
+    if provenance.get("protocol_amendment")!="PA-009" or provenance.get("configuration")!="C5":
+        return False
+    if provenance.get("scheduled_order")!=schedule_order(final_rows[PA009_ORIGINAL_SLOT]):
+        return False
+    if provenance.get("evidence_directory")!=f"data/raw/final/{PA009_REPLACEMENT_ID}":
+        return False
+    evidence=ROOT/"data/raw/final"/PA009_ORIGINAL_SLOT/"run.json"
+    if not evidence.is_file():
+        return False
+    previous=json.loads(evidence.read_text())
+    if previous.get("validity")!="INVALID_NONRETRYABLE" or previous.get("outcome",{}).get("failure_stage")!="cache_preflight":
+        return False
+    timings=previous.get("timings",{})
+    if timings.get("total_ms")!=0 or previous.get("execution")!=[] or timings.get("security_controls")!=[]:
+        return False
+    if previous.get("tools")!=[] or previous.get("security",{}).get("finding_count")!=0 or "replacement_provenance" in previous:
+        return False
+    for name,expected in PA009_PREDECESSOR_SHA256.items():
+        target=evidence.parent/name
+        if not target.is_file() or hashlib.sha256(target.read_bytes()).hexdigest()!=expected:
+            return False
+    raw=evidence.parent/"raw"
+    if not raw.is_dir() or any(raw.iterdir()):
+        return False
+    return True
 def schedule():
     rows=list(csv.DictReader((ROOT/"research/pilot-schedule-v1.csv").open()))
     assert len(rows)==35
@@ -50,7 +90,7 @@ def final_provenance(match, record, final_rows, directory):
       assert "replacement_provenance" not in record, "original final run cannot contain replacement provenance"
       return original
     provenance=record.get("replacement_provenance")
-    assert provenance, "final replacement requires PA-003 provenance"
+    assert provenance, "final replacement requires PA-003 or PA-009 provenance"
     assert provenance["original_scheduled_slot_id"]==original
     assert provenance["configuration"]==match.group(1)
     assert provenance["scheduled_order"]==schedule_order(final_rows[original])
@@ -58,6 +98,9 @@ def final_provenance(match, record, final_rows, directory):
     predecessor=original if provenance["attempt_number"]==2 else f"{original}-A02"
     assert provenance["predecessor_attempt_id"]==predecessor
     assert provenance["evidence_directory"]==f"data/raw/final/{directory.name}"
+    if provenance.get("protocol_amendment")=="PA-009":
+        assert pa009_final_exception(match,provenance,directory,final_rows), "PA-009 single-slot exception conditions unmet"
+        return original
     assert provenance["protocol_amendment"]=="PA-003"
     previous=ROOT/"data/raw/final"/predecessor/"run.json"
     assert previous.exists(), "final replacement predecessor record is missing"
